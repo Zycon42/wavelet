@@ -43,3 +43,36 @@ VectorXd downsample(const VectorXd& signal, size_t factor) {
 
 	return result;
 }
+
+size_t downsample(const VectorXd& signal, size_t factor, VectorXd& result) {
+	size_t resultLen = std::ceil((double)signal.size() / factor);
+	for (size_t i = 0; i < resultLen; ++i) {
+		result.push_back(signal[i * factor]);
+	}
+
+	return resultLen;
+}
+
+VectorXd upsample(const VectorXd& signal, size_t factor) {
+	size_t resultLen = std::ceil((double)signal.size() * factor);
+	VectorXd result(resultLen);
+	for (size_t i = 0; i < resultLen; ++i) {
+		if (i % factor == 0)
+			result[i] = signal[i / factor];
+		else
+			result[i] = 0.0;
+	}
+	return result;
+}
+
+size_t upsample(const VectorXd& signal, size_t factor, VectorXd& result) {
+	size_t resultLen = std::ceil((double)signal.size() * factor);
+	for (size_t i = 0; i < resultLen; ++i) {
+		if (i % factor == 0)
+			result.push_back(signal[i / factor]);
+		else
+			result.push_back(0.0);
+	}
+
+	return resultLen;
+}
