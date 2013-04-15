@@ -4,10 +4,12 @@
 
 set(ZPO13_LIB_HEADERS
     mathutils.h
+	wavelettransform.h
 )
 
 set(ZPO13_LIB_SOURCES
-    mathutils.cpp	
+    mathutils.cpp
+	wavelettransform.cpp
 )
 
 add_library(zpo13 ${ZPO13_LIB_HEADERS} ${ZPO13_LIB_SOURCES})
