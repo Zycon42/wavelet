@@ -5,6 +5,7 @@
 set(ZPO13_LIB_HEADERS
     mathutils.h
 	wavelettransform.h
+	utils.h
 )
 
 set(ZPO13_LIB_SOURCES
