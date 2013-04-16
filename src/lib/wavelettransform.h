@@ -8,29 +8,24 @@
 #ifndef WAVELET_TRANSFORM_H
 #define WAVELET_TRANSFORM_H
 
-#include "mathutils.h"
-
+#include <vector>
 #include <list>
 #include <map>
+
+typedef std::vector<double> VectorXd;
 
 struct Wavelet
 {
 	Wavelet() {}
-	Wavelet(VectorXd lpa, VectorXd hpa, VectorXd lps, VectorXd hps) :
-		lowPassAnalysisFilter(std::move(lpa)), highPassAnalysisFilter(std::move(hpa)),
-		lowPassSynthesisFilter(std::move(lps)), highPassSynthesisFilter(std::move(hps))
-	{}
+	Wavelet(VectorXd coefs) : coefs(std::move(coefs)) {}
 
-	VectorXd lowPassAnalysisFilter;
-	VectorXd highPassAnalysisFilter;
-	VectorXd lowPassSynthesisFilter;
-	VectorXd highPassSynthesisFilter;
+	VectorXd coefs;
 };
 
 class WaveletFactory
 {
 public:
-	enum class Type { Harr, Cdf97 };
+	enum class Type { Cdf97 };
 	static Wavelet create(Type type);
 private:
 	static std::map<Type, Wavelet> waveletBank;
@@ -46,12 +41,10 @@ public:
 
 	VectorXd inverse1d(const std::list<VectorXd>& dwt);
 private:
-	static const int DOWNSAMP_FACTOR = 2;
-	static const int UPSAMP_FACTOR = 2;
 
+	static void liftPredict(VectorXd& signal, double coef);
+	static void liftUpdate(VectorXd& signal, double coef);
 	void forwardStep1d(const VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs);
-	void symmetricExtense(VectorXd& signal, size_t n);
-
 	VectorXd inverseStep1d(const VectorXd& approxCoefs, const VectorXd& detailCoefs);
 
 	Wavelet wavelet;

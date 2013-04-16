@@ -15,7 +15,6 @@ if (GTEST_FOUND)
 	
 	set(ZPO13_TESTS_SOURCES
 		TestCV.cpp
-		TestMathUtils.cpp
 		TestDwt.cpp
 	)
 	

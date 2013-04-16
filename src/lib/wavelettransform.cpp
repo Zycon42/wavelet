@@ -15,20 +15,8 @@
 #include <cassert>
 
 std::map<WaveletFactory::Type, Wavelet> WaveletFactory::waveletBank = create_map<Type, Wavelet>
-	(WaveletFactory::Type::Harr, 
-		Wavelet(create_vector<double>(M_SQRT1_2)(M_SQRT1_2), create_vector<double>(-M_SQRT1_2)(M_SQRT1_2), 
-			create_vector<double>(M_SQRT1_2)(M_SQRT1_2), create_vector<double>(M_SQRT1_2)(-M_SQRT1_2)
-		)
-	)(WaveletFactory::Type::Cdf97,
-		Wavelet(create_vector<double>(0.026748757411)(-0.016864118443)(-0.078223266529)(0.266864118443)
-				(0.602949018236)(0.266864118443)(-0.078223266529)(-0.016864118443)(0.026748757411),
-			create_vector<double>(0.0)(0.091271763114)(-0.057543526229)(-0.591271763114)(1.11508705)
-				(-0.591271763114)(-0.057543526229)(0.091271763114)(0.0),
-			create_vector<double>(0.0)(-0.091271763114)(-0.057543526229)(0.591271763114)(1.11508705)
-				(0.591271763114)(-0.057543526229)(-0.091271763114)(0.0),
-			create_vector<double>(0.026748757411)(0.016864118443)(-0.078223266529)(-0.266864118443)
-				(0.602949018236)(-0.266864118443)(-0.078223266529)(0.016864118443)(0.026748757411)
-		)
+	(WaveletFactory::Type::Cdf97,
+		Wavelet(create_vector<double>(-1.586134342)(-0.05298011854)(0.8829110762)(0.4435068522)(1.149604398))
 	);
 
 Wavelet WaveletFactory::create(Type type) {
@@ -46,43 +34,54 @@ WaveletTransform::WaveletTransform(Wavelet wavelet, int numLevels) :
 WaveletTransform::~WaveletTransform() {
 }
 
-void WaveletTransform::forwardStep1d(const VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs) {
-	auto lpTemp = convolve(signal, wavelet.lowPassAnalysisFilter, ConvolveMode::Valid);
-	downsample(lpTemp, DOWNSAMP_FACTOR, approxCoefs);
-
-	auto hpTemp = convolve(signal, wavelet.highPassAnalysisFilter, ConvolveMode::Valid);
-	downsample(hpTemp, DOWNSAMP_FACTOR, detailCoefs);
+void WaveletTransform::liftPredict(VectorXd& signal, double coef) {
+	for (size_t i = 1; i < signal.size() - 2; i += 2) {
+		signal[i] += coef * (signal[i - 1] + signal[i + 1]);
+	} 
+	signal[signal.size() - 1] += 2 * coef * signal[signal.size() - 2];
 }
 
-void WaveletTransform::symmetricExtense(VectorXd& signal, size_t n) {
-	// we must have enough values for extension
-	assert(signal.size() > 2 * n);
+void WaveletTransform::liftUpdate(VectorXd& signal, double coef) {
+	for (size_t i = 2; i < signal.size(); i += 2) {
+		signal[i] += coef * (signal[i - 1] + signal[i + 1]);
+	}
+	signal[0] += 2 * coef * signal[1];
+}
 
-	// preallocate room in signal
-	signal.insert(signal.begin(), n, VectorXd::value_type());
-	signal.insert(signal.end(), n, VectorXd::value_type());
+void WaveletTransform::forwardStep1d(const VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs) {
+	VectorXd sig = signal;
 
-	// insert values symmetrically
-	for (size_t i = 0; i < n; ++i) {
-		signal[i] = signal[2 * n - 1 - i];
-		signal[signal.size() - 1 - i] = signal[signal.size() - 2 * n + i];
+	// predict 1
+	liftPredict(sig, wavelet.coefs[0]);
+
+	// update 1
+	liftUpdate(sig, wavelet.coefs[1]);
+
+	// predict 2
+	liftPredict(sig, wavelet.coefs[2]);
+
+	// update 2
+	liftUpdate(sig, wavelet.coefs[3]);
+
+	// scale and store result
+	double scaleCoef = 1.0 / wavelet.coefs[4];
+	for (size_t i = 0; i < sig.size(); ++i) {
+		if (i % 2) {
+			sig[i] *= scaleCoef;
+			detailCoefs.push_back(sig[i]);
+		} else {
+			sig[i] /= scaleCoef;
+			approxCoefs.push_back(sig[i]);
+		}
 	}
 }
 
 std::list<VectorXd> WaveletTransform::forward1d(const VectorXd& signal) {
 	VectorXd processedSig = signal;
-	// make signal even
-	if ((signal.size() % 2) != 0) {
-		processedSig.push_back(signal.back());
-	}
-
+	
 	std::list<VectorXd> result;
 	VectorXd approxCoefs, detailCoefs;
 	for (int i = 0; i < numLevels; ++i) {
-		// symmetric signal extension
-		size_t extSize = wavelet.lowPassAnalysisFilter.size();
-		symmetricExtense(processedSig, extSize - 1);
-
 		forwardStep1d(processedSig, approxCoefs, detailCoefs);
 		// add detail coefs to result
 		result.push_back(detailCoefs);
@@ -103,18 +102,26 @@ std::list<VectorXd> WaveletTransform::forward1d(const VectorXd& signal) {
 }
 
 VectorXd WaveletTransform::inverseStep1d(const VectorXd& approxCoefs, const VectorXd& detailCoefs) {
-	VectorXd appUpsampled = upsample(approxCoefs, UPSAMP_FACTOR);
-	appUpsampled.pop_back();
-	VectorXd appConv = convolve(appUpsampled, wavelet.lowPassSynthesisFilter, ConvolveMode::Valid);
+	assert(approxCoefs.size() == detailCoefs.size());
 
-	VectorXd detUpsampled = upsample(detailCoefs, UPSAMP_FACTOR);
-	detUpsampled.pop_back();
-	VectorXd detConv = convolve(detUpsampled, wavelet.highPassSynthesisFilter, ConvolveMode::Valid);
+	VectorXd result(approxCoefs.size() + detailCoefs.size());
+	double scaleCoef = wavelet.coefs[4];
+	for (size_t i = 0; i < result.size() / 2; i++) {
+		result[i * 2] = approxCoefs[i] / scaleCoef;
+		result[i * 2 + 1] = detailCoefs[i] * scaleCoef;
+	}
 
-	VectorXd result(appConv.size());
-	// add appConv with dettConv to result
-	std::transform(appConv.begin(), appConv.end(), detConv.begin(), result.begin(), 
-		[] (double lhs, double rhs) -> double { return lhs + rhs; });
+	// undo update 2
+	liftUpdate(result, -wavelet.coefs[3]);
+	
+	// undo predict 2
+	liftPredict(result, -wavelet.coefs[2]);
+	
+	// undo update 1
+	liftUpdate(result, -wavelet.coefs[1]);
+	
+	// undo predict 1
+	liftPredict(result, -wavelet.coefs[0]);
 
 	return result;
 }

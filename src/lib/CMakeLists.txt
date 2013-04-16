@@ -3,13 +3,11 @@
 # author: Jan Dušek <jan.dusek90@gmail.com>
 
 set(ZPO13_LIB_HEADERS
-    mathutils.h
 	wavelettransform.h
 	utils.h
 )
 
 set(ZPO13_LIB_SOURCES
-    mathutils.cpp
 	wavelettransform.cpp
 )
 
