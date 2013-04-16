@@ -48,35 +48,35 @@ void WaveletTransform::liftUpdate(VectorXd& signal, double coef) {
 	signal[0] += 2 * coef * signal[1];
 }
 
-void WaveletTransform::forwardStep1d(const VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs) {
-	VectorXd sig = signal;
-
+void WaveletTransform::forwardStep1d(VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs) {
 	// predict 1
-	liftPredict(sig, wavelet.coefs[0]);
+	liftPredict(signal, wavelet.coefs[0]);
 
 	// update 1
-	liftUpdate(sig, wavelet.coefs[1]);
+	liftUpdate(signal, wavelet.coefs[1]);
 
 	// predict 2
-	liftPredict(sig, wavelet.coefs[2]);
+	liftPredict(signal, wavelet.coefs[2]);
 
 	// update 2
-	liftUpdate(sig, wavelet.coefs[3]);
+	liftUpdate(signal, wavelet.coefs[3]);
 
 	// scale and store result
 	double scaleCoef = 1.0 / wavelet.coefs[4];
-	for (size_t i = 0; i < sig.size(); ++i) {
+	for (size_t i = 0; i < signal.size(); ++i) {
 		if (i % 2) {
-			sig[i] *= scaleCoef;
-			detailCoefs.push_back(sig[i]);
+			signal[i] *= scaleCoef;
+			detailCoefs.push_back(signal[i]);
 		} else {
-			sig[i] /= scaleCoef;
-			approxCoefs.push_back(sig[i]);
+			signal[i] /= scaleCoef;
+			approxCoefs.push_back(signal[i]);
 		}
 	}
 }
 
 std::list<VectorXd> WaveletTransform::forward1d(const VectorXd& signal) {
+	assert(signal.size() % 2 == 0);
+
 	VectorXd processedSig = signal;
 	
 	std::list<VectorXd> result;
@@ -103,8 +103,9 @@ std::list<VectorXd> WaveletTransform::forward1d(const VectorXd& signal) {
 
 VectorXd WaveletTransform::inverseStep1d(const VectorXd& approxCoefs, const VectorXd& detailCoefs) {
 	assert(approxCoefs.size() == detailCoefs.size());
-
 	VectorXd result(approxCoefs.size() + detailCoefs.size());
+
+	// unscale and interleave coefs
 	double scaleCoef = wavelet.coefs[4];
 	for (size_t i = 0; i < result.size() / 2; i++) {
 		result[i * 2] = approxCoefs[i] / scaleCoef;

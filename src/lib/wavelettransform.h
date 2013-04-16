@@ -44,7 +44,7 @@ private:
 
 	static void liftPredict(VectorXd& signal, double coef);
 	static void liftUpdate(VectorXd& signal, double coef);
-	void forwardStep1d(const VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs);
+	void forwardStep1d(VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs);
 	VectorXd inverseStep1d(const VectorXd& approxCoefs, const VectorXd& detailCoefs);
 
 	Wavelet wavelet;
