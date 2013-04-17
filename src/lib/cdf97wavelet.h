@@ -19,15 +19,15 @@
 class Cdf97Wavelet : public Wavelet
 {
 public:
-	virtual void forward(ArrayRef<double> signal);
+	virtual void forward(ArrayRef<float> signal);
 
-	virtual void inverse(ArrayRef<double> dwt);
+	virtual void inverse(ArrayRef<float> dwt);
 private:
-	static void liftPredict(ArrayRef<double> signal, double coef);
-	static void liftUpdate(ArrayRef<double> signal, double coef);
+	static void liftPredict(ArrayRef<float> signal, float coef);
+	static void liftUpdate(ArrayRef<float> signal, float coef);
 
-	static double coefs[];				// lifting coeficients
-	std::vector<double> tempbank;		// temp buffer for de/interleaving signal
+	static float coefs[];				// lifting coeficients
+	std::vector<float> tempbank;		// temp buffer for de/interleaving signal
 };
 
 #endif // !CDF97_WAVELET_H

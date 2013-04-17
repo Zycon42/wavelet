@@ -9,11 +9,11 @@
 
 #include <cassert>
 
-double Cdf97Wavelet::coefs[] = {
-	-1.586134342060, -0.052980118573, 0.882911075531, 0.443506852044, 1.149604398860
+float Cdf97Wavelet::coefs[] = {
+	-1.586134342060f, -0.052980118573f, 0.882911075531f, 0.443506852044f, 1.149604398860f
 };
 
-void Cdf97Wavelet::forward(ArrayRef<double> signal) {
+void Cdf97Wavelet::forward(ArrayRef<float> signal) {
 	assert(signal.size() % 2 == 0);
 
 	// predict 1
@@ -31,7 +31,7 @@ void Cdf97Wavelet::forward(ArrayRef<double> signal) {
 	tempbank.resize(signal.size());
 
 	// scale and store result
-	double scaleCoef = 1.0 / coefs[4];
+	float scaleCoef = 1.0f / coefs[4];
 	for (size_t i = 0; i < signal.size(); ++i) {
 		if (i % 2) {
 			signal[i] *= scaleCoef;
@@ -47,12 +47,12 @@ void Cdf97Wavelet::forward(ArrayRef<double> signal) {
 	}
 }
 
-void Cdf97Wavelet::inverse(ArrayRef<double> dwt) {
+void Cdf97Wavelet::inverse(ArrayRef<float> dwt) {
 	assert(dwt.size() % 2 == 0);
 
 	tempbank.resize(dwt.size());
 	// unscale and interleave coefs
-	double scaleCoef = coefs[4];
+	float scaleCoef = coefs[4];
 	for (size_t i = 0; i < dwt.size() / 2; i++) {
 		tempbank[i * 2] = dwt[i] / scaleCoef;
 		tempbank[i * 2 + 1] = dwt[i + dwt.size() / 2] * scaleCoef;
@@ -75,7 +75,7 @@ void Cdf97Wavelet::inverse(ArrayRef<double> dwt) {
 	liftPredict(dwt, -coefs[0]);
 }
 
-void Cdf97Wavelet::liftPredict(ArrayRef<double> signal, double coef) {
+void Cdf97Wavelet::liftPredict(ArrayRef<float> signal, float coef) {
 	for (size_t i = 1; i < signal.size() - 2; i += 2) {
 		signal[i] += coef * (signal[i - 1] + signal[i + 1]);
 	}
@@ -83,7 +83,7 @@ void Cdf97Wavelet::liftPredict(ArrayRef<double> signal, double coef) {
 	signal[signal.size() - 1] += 2 * coef * signal[signal.size() - 2];
 }
 
-void Cdf97Wavelet::liftUpdate(ArrayRef<double> signal, double coef) {
+void Cdf97Wavelet::liftUpdate(ArrayRef<float> signal, float coef) {
 	for (size_t i = 2; i < signal.size(); i += 2) {
 		signal[i] += coef * (signal[i - 1] + signal[i + 1]);
 	}

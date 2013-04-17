@@ -15,7 +15,7 @@
 #include <memory>
 #include <list>
 
-typedef std::vector<double> VectorXd;
+typedef std::vector<float> VectorXf;
 
 class WaveletTransform
 {
@@ -23,9 +23,9 @@ public:
 	WaveletTransform(std::shared_ptr<Wavelet> wavelet, int numLevels);
 	~WaveletTransform();
 
-	void forward1d(VectorXd& signal);
+	void forward1d(VectorXf& signal);
 
-	void inverse1d(VectorXd& dwt);
+	void inverse1d(VectorXf& dwt);
 
 	void forward2d(cv::Mat& signal);
 

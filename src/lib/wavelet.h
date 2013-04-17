@@ -24,14 +24,14 @@ public:
 	 *     Its size must be even. First half will contain approx coefs and
 	 *     second half detail coefs.
 	 */
-	virtual void forward(ArrayRef<double> signal) = 0;
+	virtual void forward(ArrayRef<float> signal) = 0;
 
 	/**
 	 * Performs one level in place idwt with this wavelet.
 	 * @param dwt result from forward method that will be replaced with
 	 *     its original if their size is same
 	 */
-	virtual void inverse(ArrayRef<double> dwt) = 0;
+	virtual void inverse(ArrayRef<float> dwt) = 0;
 };
 
 #endif // !WAVELET_H

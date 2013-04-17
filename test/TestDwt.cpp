@@ -13,7 +13,7 @@ class TestDwt : public ::testing::Test
 protected:
 	void SetUp() {
 		for (int i = 0; i < 32; i++) {
-			testVal.push_back(5.0 + i + 0.4 * i * i - 0.02 * i * i * i);
+			testVal.push_back(5.0f + i + 0.4f * i * i - 0.02f * i * i * i);
 		}
 
 		cdf97Wt.reset(new WaveletTransform(std::make_shared<Cdf97Wavelet>(), 2));
@@ -27,7 +27,7 @@ protected:
 
 	std::unique_ptr<WaveletTransform> cdf97Wt;
 
-	VectorXd testVal;
+	VectorXf testVal;
 };
 
 TEST_F(TestDwt, OneDimCdf97) {
@@ -37,7 +37,7 @@ TEST_F(TestDwt, OneDimCdf97) {
 
 	ASSERT_EQ(testVal.size(), working.size());
 	for (size_t i = 0; i < testVal.size(); ++i) {
-		EXPECT_NEAR(testVal[i], working[i], 1e-13);
+		EXPECT_NEAR(testVal[i], working[i], 1e-4);
 	}
 }
 
@@ -46,7 +46,7 @@ TEST_F(TestDwt, TwoDimCdf97) {
 	ASSERT_FALSE(!image.data);
 
 	cv::Mat dimg;
-	image.convertTo(dimg, CV_64F);
+	image.convertTo(dimg, CV_32F);
 	cv::Mat orgDimg = dimg.clone();
 
 	cdf97Wt->forward2d(dimg);
@@ -55,5 +55,5 @@ TEST_F(TestDwt, TwoDimCdf97) {
 	cdf97Wt->inverse2d(dimg);
 	//cv::imwrite("inverse.png", dimg);
 
-	EXPECT_NEAR(0.0, computeDifference(dimg, orgDimg), 1e-13);
+	EXPECT_NEAR(0.0, computeDifference(dimg, orgDimg), 1e-4);
 }
