@@ -19,6 +19,12 @@ protected:
 		cdf97Wt.reset(new WaveletTransform(std::make_shared<Cdf97Wavelet>(), 2));
 	}
 
+	double computeDifference(const cv::Mat& test, const cv::Mat& ref) {
+		cv::Mat diff;
+		cv::absdiff(test, ref, diff);
+		return cv::sum(diff).val[0] / (diff.rows*diff.cols);
+	}
+
 	std::unique_ptr<WaveletTransform> cdf97Wt;
 
 	VectorXd testVal;
@@ -49,9 +55,5 @@ TEST_F(TestDwt, TwoDimCdf97) {
 	cdf97Wt->inverse2d(dimg);
 	//cv::imwrite("inverse.png", dimg);
 
-	// compute difference
-	cv::Mat diff;
-	cv::absdiff(dimg, orgDimg, diff);
-	double err = cv::sum(diff).val[0] / (diff.rows*diff.cols);
-	EXPECT_NEAR(0.0, err, 1e-13);
+	EXPECT_NEAR(0.0, computeDifference(dimg, orgDimg), 1e-13);
 }
