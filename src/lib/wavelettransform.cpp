@@ -9,141 +9,39 @@
 #include <cmath>
 
 #include "wavelettransform.h"
-#include "utils.h"
 
 #include <algorithm>
 #include <cassert>
+#include <stdexcept>
 
-std::map<WaveletFactory::Type, Wavelet> WaveletFactory::waveletBank = create_map<Type, Wavelet>
-	(WaveletFactory::Type::Cdf97,
-		Wavelet(create_vector<double>(-1.586134342)(-0.05298011854)(0.8829110762)(0.4435068522)(1.149604398))
-	);
-
-Wavelet WaveletFactory::create(Type type) {
-	auto valit = waveletBank.find(type);
-	if (valit == waveletBank.end())
-		throw std::runtime_error("Bad wavelet type");
-
-	return valit->second;
-}
-
-WaveletTransform::WaveletTransform(Wavelet wavelet, int numLevels) : 
+WaveletTransform::WaveletTransform(std::shared_ptr<Wavelet> wavelet, int numLevels) : 
 	wavelet(std::move(wavelet)), numLevels(numLevels) {
 }
 
 WaveletTransform::~WaveletTransform() {
 }
 
-void WaveletTransform::liftPredict(VectorXd& signal, double coef) {
-	for (size_t i = 1; i < signal.size() - 2; i += 2) {
-		signal[i] += coef * (signal[i - 1] + signal[i + 1]);
-	} 
-	signal[signal.size() - 1] += 2 * coef * signal[signal.size() - 2];
-}
+void WaveletTransform::forward1d(VectorXd& signal) {
+	// signal must be 2^numlevels long
+	if (signal.size() % (1 << numLevels) != 0)
+		throw std::runtime_error("WaveletTransform::forward1d: signal must be 2^numLevels long!");
 
-void WaveletTransform::liftUpdate(VectorXd& signal, double coef) {
-	for (size_t i = 2; i < signal.size(); i += 2) {
-		signal[i] += coef * (signal[i - 1] + signal[i + 1]);
-	}
-	signal[0] += 2 * coef * signal[1];
-}
-
-void WaveletTransform::forwardStep1d(VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs) {
-	// predict 1
-	liftPredict(signal, wavelet.coefs[0]);
-
-	// update 1
-	liftUpdate(signal, wavelet.coefs[1]);
-
-	// predict 2
-	liftPredict(signal, wavelet.coefs[2]);
-
-	// update 2
-	liftUpdate(signal, wavelet.coefs[3]);
-
-	// scale and store result
-	double scaleCoef = 1.0 / wavelet.coefs[4];
-	for (size_t i = 0; i < signal.size(); ++i) {
-		if (i % 2) {
-			signal[i] *= scaleCoef;
-			detailCoefs.push_back(signal[i]);
-		} else {
-			signal[i] /= scaleCoef;
-			approxCoefs.push_back(signal[i]);
-		}
-	}
-}
-
-std::list<VectorXd> WaveletTransform::forward1d(const VectorXd& signal) {
-	assert(signal.size() % 2 == 0);
-
-	VectorXd processedSig = signal;
-	
-	std::list<VectorXd> result;
-	VectorXd approxCoefs, detailCoefs;
+	size_t size = signal.size();
 	for (int i = 0; i < numLevels; ++i) {
-		forwardStep1d(processedSig, approxCoefs, detailCoefs);
-		// add detail coefs to result
-		result.push_back(detailCoefs);
-
-		// last iteration
-		if (i == numLevels - 1) {
-			// add to result also approx coefs
-			result.push_back(approxCoefs);
-		}
-
-		// use approximated coefficients as signal in next iteration
-		processedSig = approxCoefs;
-		approxCoefs.clear();
-		detailCoefs.clear();
+		wavelet->forward(ArrayRef<double>(signal.data(), size));
+		size /= 2;
 	}
-
-	return result;
 }
 
-VectorXd WaveletTransform::inverseStep1d(const VectorXd& approxCoefs, const VectorXd& detailCoefs) {
-	assert(approxCoefs.size() == detailCoefs.size());
-	VectorXd result(approxCoefs.size() + detailCoefs.size());
+void WaveletTransform::inverse1d(VectorXd& dwt) {
+	// input must be 2^numlevels long
+	if (dwt.size() % (1 << numLevels) != 0)
+		throw std::runtime_error("WaveletTransform::inverse1d: input must be 2^numLevels long!");
 
-	// unscale and interleave coefs
-	double scaleCoef = wavelet.coefs[4];
-	for (size_t i = 0; i < result.size() / 2; i++) {
-		result[i * 2] = approxCoefs[i] / scaleCoef;
-		result[i * 2 + 1] = detailCoefs[i] * scaleCoef;
-	}
-
-	// undo update 2
-	liftUpdate(result, -wavelet.coefs[3]);
-	
-	// undo predict 2
-	liftPredict(result, -wavelet.coefs[2]);
-	
-	// undo update 1
-	liftUpdate(result, -wavelet.coefs[1]);
-	
-	// undo predict 1
-	liftPredict(result, -wavelet.coefs[0]);
-
-	return result;
-}
-
-VectorXd WaveletTransform::inverse1d(const std::list<VectorXd>& dwt) {
-	assert(dwt.size() == numLevels + 1);
-
-	// process dwt coefs from end
-	auto curCoefIterator = dwt.rbegin();
-	auto approxCoef = *curCoefIterator++;
-	auto detailCoef = *curCoefIterator++;
-
-	VectorXd result;
+	// get second highest level size
+	size_t size = dwt.size() / (1 << (numLevels - 1));
 	for (int i = 0; i < numLevels; ++i) {
-		result = inverseStep1d(approxCoef, detailCoef);
-
-		if (i < numLevels - 1) {
-			approxCoef = result;
-			detailCoef = *curCoefIterator++;
-		}
+		wavelet->inverse(ArrayRef<double>(dwt.data(), size));
+		size *= 2;
 	}
-
-	return result;
 }

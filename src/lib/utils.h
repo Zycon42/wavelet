@@ -8,6 +8,11 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <cstdlib>
+#include <map>
+#include <vector>
+#include <cassert>
+
 /**
  * Utility class that allows std::map initialization.
  * Required because !!!!STUPID!!!! MSVC11 doesn't support initializer lists
@@ -54,6 +59,72 @@ public:
 	}
 private:
 	std::vector<T> vec;
+};
+
+template <typename T>
+class ArrayRef
+{
+public:
+	typedef T value_type;
+	typedef T* pointer;
+	typedef size_t size_type;
+
+	ArrayRef(pointer ptr, size_type n) : ptr(ptr), n(n) { }
+	ArrayRef(std::vector<T>& vec) : ptr(vec.data()), n(vec.size()) { }
+
+	pointer data() {
+		return ptr;
+	}
+
+	const pointer data() const {
+		return ptr;
+	}
+
+	size_type size() const {
+		return n;
+	}
+
+	value_type& operator[](size_type i) {
+		assert(i < n);
+		return ptr[i];
+	}
+
+	const value_type& operator[](size_type i) const {
+		assert(i < n);
+		return ptr[i];
+	}
+private:
+	T* ptr;
+	size_type n;
+};
+
+template <typename T>
+class ConstArrayRef
+{
+public:
+	typedef T value_type;
+	typedef T* pointer;
+	typedef size_t size_type;
+
+	ConstArrayRef(const pointer ptr, size_type n) : ptr(ptr), n(n) { }
+	ConstArrayRef(const std::vector<T>& vec) : ptr(vec.data()), n(vec.size()) { }
+	ConstArrayRef(ArrayRef<T>& other) : ptr(other.data()), n(other.size()) { }
+
+	const pointer data() const {
+		return ptr;
+	}
+
+	size_type size() const {
+		return n;
+	}
+
+	const value_type& operator[](size_type i) const {
+		assert(i < n);
+		return ptr[i];
+	}
+private:
+	const T* ptr;
+	size_type n;
 };
 
 #endif // !UTILS_H

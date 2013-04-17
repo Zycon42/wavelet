@@ -8,46 +8,24 @@
 #ifndef WAVELET_TRANSFORM_H
 #define WAVELET_TRANSFORM_H
 
-#include <vector>
+#include "wavelet.h"
+
+#include <memory>
 #include <list>
-#include <map>
 
 typedef std::vector<double> VectorXd;
-
-struct Wavelet
-{
-	Wavelet() {}
-	Wavelet(VectorXd coefs) : coefs(std::move(coefs)) {}
-
-	VectorXd coefs;
-};
-
-class WaveletFactory
-{
-public:
-	enum class Type { Cdf97 };
-	static Wavelet create(Type type);
-private:
-	static std::map<Type, Wavelet> waveletBank;
-};
 
 class WaveletTransform
 {
 public:
-	WaveletTransform(Wavelet wavelet, int numLevels);
+	WaveletTransform(std::shared_ptr<Wavelet> wavelet, int numLevels);
 	~WaveletTransform();
 
-	std::list<VectorXd> forward1d(const VectorXd& signal);
+	void forward1d(VectorXd& signal);
 
-	VectorXd inverse1d(const std::list<VectorXd>& dwt);
+	void inverse1d(VectorXd& dwt);
 private:
-
-	static void liftPredict(VectorXd& signal, double coef);
-	static void liftUpdate(VectorXd& signal, double coef);
-	void forwardStep1d(VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs);
-	VectorXd inverseStep1d(const VectorXd& approxCoefs, const VectorXd& detailCoefs);
-
-	Wavelet wavelet;
+	std::shared_ptr<Wavelet> wavelet;
 	int numLevels;
 };
 
