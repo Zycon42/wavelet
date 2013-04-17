@@ -42,18 +42,20 @@ TEST_F(TestDwt, OneDimCdf97) {
 }
 
 TEST_F(TestDwt, TwoDimCdf97) {
-	cv::Mat image = cv::imread("lena.png", CV_LOAD_IMAGE_GRAYSCALE);
+	cv::Mat image = cv::imread("lena.png", CV_LOAD_IMAGE_COLOR);
 	ASSERT_FALSE(!image.data);
 
 	cv::Mat dimg;
-	image.convertTo(dimg, CV_32F);
+	image.convertTo(dimg, CV_32FC3);
+	dimg = dimg.reshape(1);
+
 	cv::Mat orgDimg = dimg.clone();
 
 	cdf97Wt->forward2d(dimg);
-	//cv::imwrite("dwt.png", dimg);
+	//cv::imwrite("dwt.png", dimg.reshape(3));
 
 	cdf97Wt->inverse2d(dimg);
-	//cv::imwrite("inverse.png", dimg);
+	//cv::imwrite("inverse.png", dimg.reshape(3));
 
 	EXPECT_NEAR(0.0, computeDifference(dimg, orgDimg), 1e-4);
 }

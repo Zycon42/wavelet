@@ -7,11 +7,13 @@ set(ZPO13_LIB_HEADERS
 	utils.h
 	wavelet.h
 	cdf97wavelet.h
+	wlfimage.h
 )
 
 set(ZPO13_LIB_SOURCES
 	wavelettransform.cpp
 	cdf97wavelet.cpp
+	wlfimage.cpp
 )
 
 add_library(zpo13 ${ZPO13_LIB_HEADERS} ${ZPO13_LIB_SOURCES})
