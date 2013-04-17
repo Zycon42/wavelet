@@ -45,3 +45,52 @@ void WaveletTransform::inverse1d(VectorXd& dwt) {
 		size *= 2;
 	}
 }
+
+void WaveletTransform::forward2d(cv::Mat& signal) {
+	assert(signal.type() == CV_64F);
+
+	cv::Mat roi(signal, cv::Rect(0, 0, signal.cols, signal.rows));
+	for (int i = 0; i < numLevels; ++i) {
+		// transform rows
+		for (int i = 0; i < roi.rows; ++i) {
+			ArrayRef<double> rowPtr(roi.ptr<double>(i), roi.cols);
+			wavelet->forward(rowPtr);
+		}
+		// transpose matrix so col transformation can be done in rows
+		cv::Mat transposed = roi.t();
+		for (int i = 0; i < transposed.rows; ++i) {
+			ArrayRef<double> rowPtr(transposed.ptr<double>(i), transposed.cols);
+			wavelet->forward(rowPtr);
+		}
+		// copy transposed to roi
+		cv::Mat(transposed.t()).copyTo(roi);
+
+		// set roi to upper left corner
+		roi.adjustROI(0, -(roi.rows / 2), 0, -(roi.cols / 2));
+	}
+}
+
+void WaveletTransform::inverse2d(cv::Mat& dwt) {
+	assert(dwt.type() == CV_64F);
+
+	size_t factor = 1 << (numLevels - 1);
+	cv::Mat roi(dwt, cv::Rect(cv::Point(0, 0), cv::Size(dwt.cols / factor, dwt.rows / factor)));
+	for (int i = 0; i < numLevels; ++i) {
+		// transform rows
+		for (int i = 0; i < roi.rows; ++i) {
+			ArrayRef<double> rowPtr(roi.ptr<double>(i), roi.cols);
+			wavelet->inverse(rowPtr);
+		}
+		// transpose matrix so col transformation can be done in rows
+		cv::Mat transposed = roi.t();
+		for (int i = 0; i < transposed.rows; ++i) {
+			ArrayRef<double> rowPtr(transposed.ptr<double>(i), transposed.cols);
+			wavelet->inverse(rowPtr);
+		}
+		// copy transposed to roi
+		cv::Mat(transposed.t()).copyTo(roi);
+
+		// extend roi
+		roi.adjustROI(0, roi.rows, 0, roi.cols);
+	}
+}

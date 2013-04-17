@@ -10,6 +10,8 @@
 
 #include "wavelet.h"
 
+#include <opencv2/core/core.hpp>
+
 #include <memory>
 #include <list>
 
@@ -24,6 +26,10 @@ public:
 	void forward1d(VectorXd& signal);
 
 	void inverse1d(VectorXd& dwt);
+
+	void forward2d(cv::Mat& signal);
+
+	void inverse2d(cv::Mat& dwt);
 private:
 	std::shared_ptr<Wavelet> wavelet;
 	int numLevels;

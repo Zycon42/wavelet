@@ -78,7 +78,8 @@ void Cdf97Wavelet::inverse(ArrayRef<double> dwt) {
 void Cdf97Wavelet::liftPredict(ArrayRef<double> signal, double coef) {
 	for (size_t i = 1; i < signal.size() - 2; i += 2) {
 		signal[i] += coef * (signal[i - 1] + signal[i + 1]);
-	} 
+	}
+	// symmetric extension
 	signal[signal.size() - 1] += 2 * coef * signal[signal.size() - 2];
 }
 
@@ -86,5 +87,6 @@ void Cdf97Wavelet::liftUpdate(ArrayRef<double> signal, double coef) {
 	for (size_t i = 2; i < signal.size(); i += 2) {
 		signal[i] += coef * (signal[i - 1] + signal[i + 1]);
 	}
+	// symmetric extension
 	signal[0] += 2 * coef * signal[1];
 }
