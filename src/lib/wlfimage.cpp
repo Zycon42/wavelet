@@ -14,132 +14,179 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include <fstream>
-#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include <functional>
 
-struct Header
-{
-	enum class PixelFormat : uint8_t {
-		RGB, Gray, YCbCr444
+void WlfImage::PixelFormat::transformFrom(Type type, const cv::Mat& src, cv::Mat& dest) {
+	using namespace std::placeholders;
+	static std::function<void (const cv::Mat&, cv::Mat&)> colorTransforms[] = {
+		std::bind(cv::cvtColor, _1, _2, CV_RGB2BGR, 0), std::bind(cv::cvtColor, _1, _2, CV_GRAY2BGR, 0),
+		std::bind(cv::cvtColor, _1, _2, CV_YCrCb2BGR, 0)
 	};
 
-	static const char* magic;
+	colorTransforms[static_cast<int>(type)](src, dest);
+}
+
+void WlfImage::PixelFormat::transformTo(Type type, const cv::Mat& src, cv::Mat& dest) {
+	using namespace std::placeholders;
+	static std::function<void (const cv::Mat&, cv::Mat&)> colorTransforms[] = {
+		std::bind(cv::cvtColor, _1, _2, CV_BGR2RGB, 0), std::bind(cv::cvtColor, _1, _2, CV_BGR2GRAY, 0),
+		std::bind(cv::cvtColor, _1, _2, CV_BGR2YCrCb, 0)
+	};
+
+	colorTransforms[static_cast<int>(type)](src, dest);
+}
+
+struct Header
+{
+	static const char* MAGIC;
+	static const size_t MAGIC_LEN = 8;
 
 	uint32_t width;
 	uint32_t height;
-	PixelFormat pf;
+	WlfImage::PixelFormat::Type pf;
 	uint8_t dwtLevels;
 };
 
-const char* Header::magic = "\x89\x57\x4c\x46\x0d\x0a\x1a\x0a";
+const char* Header::MAGIC = "\x89\x57\x4c\x46\x0d\x0a\x1a\x0a";
 
-using namespace std::placeholders;
-std::function<void (const cv::Mat&, cv::Mat&)> colorTransforms[] = {
-	std::bind(cv::cvtColor, _1, _2, CV_RGB2BGR, 0), std::bind(cv::cvtColor, _1, _2, CV_GRAY2BGR, 0),
-	std::bind(cv::cvtColor, _1, _2, CV_YCrCb2BGR, 0)
+class ImageWriter
+{
+public:
+	explicit ImageWriter(const char* file) : ofile(file, std::ios_base::binary) {
+	}
+
+	void writeHeader(const Header& header) {
+		// write magic sequence
+		ofile.write(Header::MAGIC, Header::MAGIC_LEN);
+
+		writeElement(header.width);
+		writeElement(header.height);
+		writeElement(header.pf);
+		writeElement(header.dwtLevels);
+	}
+
+	void writeChannel(const cv::Mat& channel) {
+		for (int y = 0; y < channel.rows; ++y) {
+			for (int x = 0; x < channel.cols; x++) {
+				ofile.write((const char*)channel.data + channel.step * y + channel.elemSize() * x, channel.elemSize());
+			}
+		}
+	}
+private:
+	template <typename T>
+	void writeElement(const T& elm) {
+		ofile.write(reinterpret_cast<const char*>(&elm), sizeof(elm));
+		if (!ofile)
+			throw std::runtime_error("Unable to write element to stream");
+	}
+
+	std::ofstream ofile;
 };
 
-template <typename T>
-void writeElement(std::ostream& stream, const T& elm) {
-	stream.write(reinterpret_cast<const char*>(&elm), sizeof(elm));
-	if (!stream)
-		throw std::runtime_error("Unable to write element to stream");
-}
-
-static void writeHeader(std::ostream& stream, const Header& header) {
-	// write magic sequence
-	stream.write(Header::magic, 8);
-
-	writeElement(stream, header.width);
-	writeElement(stream, header.width);
-	writeElement(stream, header.pf);
-	writeElement(stream, header.dwtLevels);
-}
-
-void wlfImageWrite(const char* file, const cv::Mat& img, const WlfParams& params) {
-	// convert input to ycbcr
-	cv::Mat colorTransformed;
-	cv::cvtColor(img, colorTransformed, CV_BGR2YCrCb);
-
-	// TODO: chromatic subsampling
-
+void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /* = Params */) {
 	// open file
-	std::ofstream out(file, std::ios_base::binary);
+	ImageWriter writer(file);
 
 	// write header
-	Header header = { img.cols, img.rows, Header::PixelFormat::YCbCr444, params.dwtLevels };
-	writeHeader(out, header);
+	Header header = { img.cols, img.rows, params.pf, params.dwtLevels };
+	writer.writeHeader(header);
+
+	// transform input from bgr to desired color model
+	cv::Mat colorTransformed;
+	PixelFormat::transformTo(params.pf, img, colorTransformed);
 
 	// convert input to one channel 32bit float
 	cv::Mat image;
 	colorTransformed.convertTo(image, CV_32FC3);
-	image = image.reshape(1);
+
+	// split image channels
+	std::vector<cv::Mat> channels;
+	cv::split(image, channels);
+	assert(channels.size() == 3);
+
+	// TODO: chromatic subsampling
 
 	// dwt with specified levels with cdf97 wavelet
 	WaveletTransform wt(std::make_shared<Cdf97Wavelet>(), params.dwtLevels);
-	wt.forward2d(image);
-
-	// write dwt result
-	for (int y = 0; y < image.rows; ++y) {
-		for (int x = 0; x < image.cols; x++) {
-			writeElement(out, image.at<float>(y, x));
-		}
+	// handle channel
+	for (auto channel : channels) {
+		wt.forward2d(channel);
+		writer.writeChannel(channel);
 	}
 }
 
-template <typename T>
-void readElement(std::istream& stream, T& elm) {
-	stream.read(reinterpret_cast<char*>(&elm), sizeof(elm));
-	if (!stream)
-		throw std::runtime_error("Unable to read element from stream");
-}
+class ImageReader
+{
+public:
+	ImageReader(const char* file) : ifile(file, std::ios_base::binary) { }
 
-static Header readHeader(std::istream& stream) {
-	char magicBuff[9] = {0};
-	stream.read(magicBuff, 8);
-	if (std::string(Header::magic) != magicBuff)
-		throw std::runtime_error("Invalid magic number!");
+	Header readHeader() {
+		char magicBuff[Header::MAGIC_LEN + 1] = {0};	// +1 for trailing zero
+		ifile.read(magicBuff, Header::MAGIC_LEN);
+		if (std::string(Header::MAGIC) != magicBuff)
+			throw std::runtime_error("Invalid magic number!");
 
-	Header header;
-	readElement(stream, header.width);
-	readElement(stream, header.height);
-	readElement(stream, header.pf);
-	readElement(stream, header.dwtLevels);
+		Header header;
+		readElement(header.width);
+		readElement(header.height);
+		readElement(header.pf);
+		readElement(header.dwtLevels);
 
-	return header;
-}
+		return header;
+	}
 
-cv::Mat wlfImageRead(const char* file) {
-	std::ifstream in(file, std::ios_base::binary);
-	Header header = readHeader(in);
+	cv::Mat readChannel(size_t width, size_t height) {
+		// create buffer for channel data storage
+		size_t buffLen = width * height * sizeof(float);
+		std::vector<char> buff(buffLen);
 
-	// alloc buffer for dwt
-	int channels = header.pf == Header::PixelFormat::Gray ? 1 : 3;
-	size_t dwtBuffLen = header.width * header.height * channels * sizeof(float);
-	std::vector<char> dwtBuff(dwtBuffLen);
+		// read channel data to buffer
+		ifile.read(buff.data(), buff.size());
 
-	// read dwt
-	in.read(dwtBuff.data(), dwtBuff.size());
+		// create resulting cv::Mat and copy channel data to it
+		auto result = cv::Mat(width, height, CV_32F);
+		memcpy(result.data, buff.data(), buff.size());
 
-	// create cv image with dwtBuff
-	auto image = cv::Mat(header.height, header.width * channels, CV_32F);
-	memcpy(image.data, dwtBuff.data(), dwtBuff.size());
+		return result;
+	}
+private:
+	template <typename T>
+	void readElement(T& elm) {
+		ifile.read(reinterpret_cast<char*>(&elm), sizeof(elm));
+		if (!ifile)
+			throw std::runtime_error("Unable to read element from stream");
+	}
 
-	// dwt with specified levels with cdf97 wavelet
+	std::ifstream ifile;
+};
+
+cv::Mat WlfImage::read(const char* file) {
+	ImageReader reader(file);
+	Header header = reader.readHeader();
+
+	// read channels
+	int numChannels = header.pf == PixelFormat::Type::Gray ? 1 : 3;
+	std::vector<cv::Mat> channels(numChannels);
 	WaveletTransform wt(std::make_shared<Cdf97Wavelet>(), header.dwtLevels);
-	wt.inverse2d(image);
+	for (int i = 0; i < numChannels; ++i) {
+		// read channel and perform idwt
+		auto channel = reader.readChannel(header.width, header.height);
+		wt.inverse2d(channel);
 
-	// convert image to 8bit
-	cv::Mat tmp;
-	image.convertTo(tmp, CV_8U);
-	image = tmp.reshape(channels);
+		// convert result to 8bit
+		channel.convertTo(channels[i], CV_8U);
+	}
 
-	// transform color to bgr
+	// merge channels to one image
+	cv::Mat image;
+	cv::merge(channels, image);
+
+	// transform color from image color model to bgr
 	cv::Mat colorTransformed = image;
-	colorTransforms[static_cast<int>(header.pf)](image, colorTransformed);
+	PixelFormat::transformFrom(header.pf, image, colorTransformed);
 
 	return colorTransformed;
 }

@@ -10,15 +10,32 @@
 
 #include <opencv2/core/core.hpp>
 
-struct WlfParams
+#include <cstdint>
+
+class WlfImage
 {
-	WlfParams() : dwtLevels(2) { }
+public:
+	struct PixelFormat
+	{
+		enum class Type : uint8_t {
+			RGB, Gray, YCbCr444
+		};
 
-	int dwtLevels;			/// num of dwt levels 
+		static void transformTo(Type, const cv::Mat&, cv::Mat&);
+		static void transformFrom(Type, const cv::Mat&, cv::Mat&);
+	};
+
+	struct Params
+	{
+		Params() : pf(PixelFormat::Type::YCbCr444), dwtLevels(2) { }
+
+		PixelFormat::Type pf;	/// pixel format
+		int dwtLevels;			/// num of dwt levels 
+	};
+
+	static cv::Mat read(const char* file);
+
+	static void save(const char* file, const cv::Mat& img, const Params& params = Params());
 };
-
-cv::Mat wlfImageRead(const char* file);
-
-void wlfImageWrite(const char* file, const cv::Mat& img, const WlfParams& params = WlfParams());
 
 #endif // !WLF_IMAGE_H

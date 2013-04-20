@@ -15,9 +15,9 @@ TEST(TestImage, Simple) {
 	cv::Mat image = cv::imread("lena.png", CV_LOAD_IMAGE_COLOR);
 	ASSERT_FALSE(!image.data);
 
-	wlfImageWrite("lena.wlf", image);
+	WlfImage::save("lena.wlf", image);
 
-	cv::Mat read = wlfImageRead("lena.wlf");
+	cv::Mat read = WlfImage::read("lena.wlf");
 	cv::imwrite("lena-inv.png", read);
 
 	EXPECT_NEAR(0.0, computeDifference(read, image), 1.0);
