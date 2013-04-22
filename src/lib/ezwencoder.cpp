@@ -65,6 +65,9 @@ void EzwEncoder::dominantPass(cv::Mat& mat, int32_t threshold) {
 
 void EzwEncoder::subordinatePass(int32_t threshold) {
 	threshold >>= 1;					// divide threshold by two
+	if (threshold <= 0)
+		return;
+
 	for (auto elm : subordList) {
 		// threshold is some power of two so it has single bit set
 		// and since we are lowering thresholds from max value we
@@ -154,10 +157,10 @@ bool EzwEncoder::isZerotreeRoot(cv::Mat& m, size_t x, size_t y, int32_t threshol
 			}
 		}
 
-		minx /= 2;
-		miny /= 2;
-		maxx /= 2;
-		maxy /= 2;
+		minx *= 2;
+		miny *= 2;
+		maxx *= 2;
+		maxy *= 2;
 	}
 
 	return true;
