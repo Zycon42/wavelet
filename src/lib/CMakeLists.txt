@@ -8,12 +8,16 @@ set(ZPO13_LIB_HEADERS
 	wavelet.h
 	cdf97wavelet.h
 	wlfimage.h
+	bitstream.h
+	ezwencoder.h
+	ezw.h
 )
 
 set(ZPO13_LIB_SOURCES
 	wavelettransform.cpp
 	cdf97wavelet.cpp
 	wlfimage.cpp
+	ezwencoder.cpp
 )
 
 add_library(zpo13 ${ZPO13_LIB_HEADERS} ${ZPO13_LIB_SOURCES})
