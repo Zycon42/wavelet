@@ -27,10 +27,11 @@ public:
 
 	struct Params
 	{
-		Params() : pf(PixelFormat::Type::YCbCr444), dwtLevels(2) { }
+		Params() : pf(PixelFormat::Type::YCbCr444), dwtLevels(2), compressRate(0) { }
 
 		PixelFormat::Type pf;	/// pixel format
-		int dwtLevels;			/// num of dwt levels 
+		int dwtLevels;			/// num of dwt levels
+		size_t compressRate;	/// number of least significant bits that won't be encoded
 	};
 
 	static cv::Mat read(const char* file);

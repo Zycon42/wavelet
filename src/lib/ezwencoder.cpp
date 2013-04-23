@@ -13,17 +13,17 @@
 
 //#define DUMP_RES
 
-void EzwEncoder::encode(cv::Mat& mat, int32_t threshold) {
+void EzwEncoder::encode(cv::Mat& mat, int32_t threshold, int32_t minThreshold) {
 	if (mat.type() != CV_32S)
 		throw std::runtime_error("EzwEncoder::encode can operate only on 32b integer matrices");
 
 	do {
 		dominantPass(mat, threshold);
 
-		subordinatePass(threshold);
+		subordinatePass(threshold, minThreshold);
 
 		threshold >>= 1;		// shift to right by one means divide by two
-	} while (threshold > 0);	// TODO: this is lossless, make this changeable to allow lossy compression
+	} while (threshold > minThreshold);
 
 #ifdef DUMP_RES
 	std::cerr << std::endl;
@@ -71,9 +71,9 @@ void EzwEncoder::dominantPass(cv::Mat& mat, int32_t threshold) {
 	} while(!dpQueue.empty());
 }
 
-void EzwEncoder::subordinatePass(int32_t threshold) {
+void EzwEncoder::subordinatePass(int32_t threshold, int32_t minThreshold) {
 	threshold >>= 1;					// divide threshold by two
-	if (threshold <= 0)
+	if (threshold <= minThreshold)
 		return;
 
 	for (auto elm : subordList) {

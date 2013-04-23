@@ -9,17 +9,17 @@
 
 //#define DUMP_RES
 
-void EzwDecoder::decode(int32_t threshold, cv::Mat& mat) {
+void EzwDecoder::decode(int32_t threshold, int32_t minThreshold, cv::Mat& mat) {
 	if (mat.type() != CV_32S)
 		throw std::runtime_error("EzwDecoder::decode can operate only on 32b integer matrices");
 
 	do {
 		dominantPass(threshold, mat);
 
-		subordinatePass(threshold, mat);
+		subordinatePass(threshold, minThreshold, mat);
 
 		threshold >>= 1;
-	} while(threshold > 0);
+	} while(threshold > minThreshold);
 
 #ifdef DUMP_RES
 	std::cerr << std::endl;
@@ -54,9 +54,9 @@ void EzwDecoder::dominantPass(int32_t threshold, cv::Mat& mat) {
 	} while (!dpQueue.empty());
 }
 
-void EzwDecoder::subordinatePass(int32_t threshold, cv::Mat& mat) {
+void EzwDecoder::subordinatePass(int32_t threshold, int32_t minThreshold, cv::Mat& mat) {
 	threshold >>= 1;
-	if (threshold <= 0)
+	if (threshold <= minThreshold)
 		return;
 
 	for (size_t i = 0; i < pixels; ++i) {

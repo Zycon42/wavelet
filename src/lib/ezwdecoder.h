@@ -24,10 +24,10 @@ public:
 	EzwDecoder(std::shared_ptr<ArithmeticDecoder>& adecoder, std::shared_ptr<BitStreamReader>& bsr) 
 		: dataModel(4), adecoder(adecoder), bitStreamReader(bsr), pixels(0) { }
 
-	void decode(int32_t threshold, cv::Mat& mat);
+	void decode(int32_t threshold, int32_t minThreshold, cv::Mat& mat);
 private:
 	void dominantPass(int32_t threshold, cv::Mat& mat);
-	void subordinatePass(int32_t threshold, cv::Mat& mat);
+	void subordinatePass(int32_t threshold, int32_t minThreshold, cv::Mat& mat);
 
 	void initDominantPassQueue(int32_t threshold, cv::Mat& m);
 	Element decodeElement(int32_t threshold, size_t x, size_t y, cv::Mat& m);

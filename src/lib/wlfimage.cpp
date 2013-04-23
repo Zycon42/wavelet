@@ -72,12 +72,15 @@ public:
 		writeElement(header.dwtLevels);
 	}
 
-	void writeChannel(const cv::Mat& channel) {
+	void writeChannel(const cv::Mat& channel, size_t compressRate) {
 		// convert float mat to int32
 		cv::Mat intChannel = convertFloatMatToInt(channel);
 
 		auto threshold = EzwEncoder::computeInitTreshold(intChannel);
 		writeElement(threshold);
+
+		int32_t minTreshold = compressRate != 0 ? 1 << (compressRate - 1) : 0;
+		writeElement(minTreshold);
 
 		// create separate streams for dominant and subordinant ezw passes
 		std::ostringstream dominantSS, subordSS;
@@ -86,7 +89,7 @@ public:
 
 		// ezw encode
 		auto ezwEncoder = EzwEncoder(std::make_shared<ArithmeticEncoder>(dominantBS), subordBS);
-		ezwEncoder.encode(intChannel, threshold);
+		ezwEncoder.encode(intChannel, threshold, minTreshold);
 
 		// write passes to file
 		auto dominantEncoded = dominantSS.str();
@@ -147,7 +150,7 @@ void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /
 	// handle channels
 	for (auto& channel : channels) {
 		wt.forward2d(channel);
-		writer.writeChannel(channel);
+		writer.writeChannel(channel, params.compressRate);
 	}
 }
 
@@ -174,6 +177,8 @@ public:
 	cv::Mat readChannel(size_t width, size_t height) {
 		int32_t threshold;
 		readElement(threshold);
+		int32_t minTreshold;
+		readElement(minTreshold);
 
 		size_t dominantSize, subordSize;
 		readElement(dominantSize);
@@ -191,7 +196,7 @@ public:
 
 		cv::Mat result = cv::Mat::zeros(width, height, CV_32S);
 		auto ezwDecoder = EzwDecoder(std::make_shared<ArithmeticDecoder>(dominantBS), subordBS);
-		ezwDecoder.decode(threshold, result);
+		ezwDecoder.decode(threshold, minTreshold, result);
 
 		return convertIntMatToFloat(result);
 

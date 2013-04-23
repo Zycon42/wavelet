@@ -44,7 +44,7 @@ TEST_F(TestEzw, Simple) {
 	auto bsr2 = std::make_shared<BitStreamReader>(&iss);
 	EzwDecoder ezwDecoder = EzwDecoder(std::make_shared<ArithmeticDecoder>(bsr1), bsr2);
 	cv::Mat decoded = cv::Mat::zeros(expected.rows, expected.cols, CV_32S);
-	ezwDecoder.decode(threshold, decoded);
+	ezwDecoder.decode(threshold, 0, decoded);
 
 	for (int i = 0; i < expected.rows; ++i) {
 		for (int j = 0; j < expected.cols; ++j) {

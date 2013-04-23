@@ -24,12 +24,12 @@ public:
 	EzwEncoder(std::shared_ptr<ArithmeticEncoder>& aencoder, std::shared_ptr<BitStreamWriter>& bsw) 
 		: dataModel(4), aencoder(aencoder), bitStreamWriter(bsw) { }
 
-	void encode(cv::Mat& mat, int32_t threshold);
+	void encode(cv::Mat& mat, int32_t threshold, int32_t minThreshold = 0);
 
 	static int32_t computeInitTreshold(const cv::Mat& m);
 private:
 	void dominantPass(cv::Mat& mat, int32_t threshold);
-	void subordinatePass(int32_t threshold);
+	void subordinatePass(int32_t threshold, int32_t minThreshold);
 
 	void initDominantPassQueue(cv::Mat& m, int32_t threshold);
 	Element codeElement(cv::Mat& m, size_t x, size_t y, int32_t threshold);
