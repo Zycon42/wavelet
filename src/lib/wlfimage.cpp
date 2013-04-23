@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <cassert>
 
 void WlfImage::PixelFormat::transformFrom(Type type, const cv::Mat& src, cv::Mat& dest) {
 	using namespace std::placeholders;
@@ -72,10 +73,7 @@ public:
 
 	void writeChannel(const cv::Mat& channel) {
 		// convert float mat to int32
-		cv::Mat intChannel(channel.size(), CV_32S);
-		for (int y = 0; y < channel.rows; ++y)
-			for (int x = 0; x < channel.cols; ++x)
-				intChannel.at<int32_t>(y, x) = channel.at<int32_t>(y, x);
+		cv::Mat intChannel = convertFloatMatToInt(channel);
 
 		auto threshold = EzwEncoder::computeInitTreshold(intChannel);
 		writeElement(threshold);
@@ -84,6 +82,18 @@ public:
 		ezwEncoder.encode(intChannel, threshold);
 	}
 private:
+	cv::Mat convertFloatMatToInt(const cv::Mat& m) {
+		assert(m.type() == CV_32F);
+
+		cv::Mat result(m.size(), CV_32S);
+		for (int y = 0; y < m.rows; ++y)
+			for (int x = 0; x < m.cols; ++x)
+				// convert to 19,13 fixed precision
+				result.at<int32_t>(y, x) = static_cast<int32_t>(m.at<float>(y, x) * (1 << 13));
+
+		return result;
+	}
+
 	template <typename T>
 	void writeElement(const T& elm) {
 		ofile.write(reinterpret_cast<const char*>(&elm), sizeof(elm));
@@ -155,16 +165,22 @@ public:
 		auto ezwDecoder = EzwDecoder(BitStreamReader(&ifile));
 		ezwDecoder.decode(threshold, result);
 
-		// convert int32 to float mat
-		cv::Mat floatResult(result.size(), CV_32F);
-		for (int y = 0; y < result.rows; ++y)
-			for (int x = 0; x < result.cols; ++x)
-				floatResult.at<float>(y, x) = result.at<float>(y, x);
-
-		return floatResult;
+		return convertIntMatToFloat(result);
 
 	}
 private:
+	cv::Mat convertIntMatToFloat(const cv::Mat& m) {
+		assert(m.type() == CV_32S);
+
+		cv::Mat result(m.size(), CV_32F);
+		for (int y = 0; y < m.rows; ++y)
+			for (int x = 0; x < m.cols; ++x)
+				// convert from 19,13 fixed precision
+				result.at<float>(y, x) = m.at<int32_t>(y, x) / float(1 << 13);
+
+		return result;
+	}
+
 	template <typename T>
 	void readElement(T& elm) {
 		ifile.read(reinterpret_cast<char*>(&elm), sizeof(elm));
