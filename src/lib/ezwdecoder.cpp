@@ -9,7 +9,7 @@
 
 void EzwDecoder::decode(int32_t threshold, cv::Mat& mat) {
 	if (mat.type() != CV_32S)
-		throw std::runtime_error("EzwEncoder::decode can operate only on 32b integer matrices");
+		throw std::runtime_error("EzwDecoder::decode can operate only on 32b integer matrices");
 
 	do {
 		dominantPass(threshold, mat);

@@ -21,10 +21,10 @@ class EzwEncoder : public EzwCodec
 public:
 	explicit EzwEncoder(BitStreamWriter bsw) : bitStreamWriter(std::move(bsw)) { }
 
-	void encode(cv::Mat& mat, int& initTreshold);
-private:
-	static int32_t computeInitTreshold(const cv::Mat& m);
+	void encode(cv::Mat& mat, int32_t threshold);
 
+	static int32_t computeInitTreshold(const cv::Mat& m);
+private:
 	void dominantPass(cv::Mat& mat, int32_t threshold);
 	void subordinatePass(int32_t threshold);
 

@@ -11,12 +11,9 @@
 #include <cstdint>
 #include <cmath>
 
-void EzwEncoder::encode(cv::Mat& mat, int& initTreshold) {
+void EzwEncoder::encode(cv::Mat& mat, int32_t threshold) {
 	if (mat.type() != CV_32S)
 		throw std::runtime_error("EzwEncoder::encode can operate only on 32b integer matrices");
-
-	initTreshold = computeInitTreshold(mat);
-	int32_t threshold = initTreshold;
 
 	do {
 		dominantPass(mat, threshold);

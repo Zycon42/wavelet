@@ -9,6 +9,8 @@
 
 #include "wavelettransform.h"
 #include "cdf97wavelet.h"
+#include "ezwencoder.h"
+#include "ezwdecoder.h"
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -69,11 +71,17 @@ public:
 	}
 
 	void writeChannel(const cv::Mat& channel) {
-		for (int y = 0; y < channel.rows; ++y) {
-			for (int x = 0; x < channel.cols; x++) {
-				ofile.write((const char*)channel.data + channel.step * y + channel.elemSize() * x, channel.elemSize());
-			}
-		}
+		// convert float mat to int32
+		cv::Mat intChannel(channel.size(), CV_32S);
+		for (int y = 0; y < channel.rows; ++y)
+			for (int x = 0; x < channel.cols; ++x)
+				intChannel.at<int32_t>(y, x) = channel.at<int32_t>(y, x);
+
+		auto threshold = EzwEncoder::computeInitTreshold(intChannel);
+		writeElement(threshold);
+
+		auto ezwEncoder = EzwEncoder(BitStreamWriter(&ofile));
+		ezwEncoder.encode(intChannel, threshold);
 	}
 private:
 	template <typename T>
@@ -111,8 +119,8 @@ void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /
 
 	// dwt with specified levels with cdf97 wavelet
 	WaveletTransform wt(std::make_shared<Cdf97Wavelet>(), params.dwtLevels);
-	// handle channel
-	for (auto channel : channels) {
+	// handle channels
+	for (auto& channel : channels) {
 		wt.forward2d(channel);
 		writer.writeChannel(channel);
 	}
@@ -139,18 +147,22 @@ public:
 	}
 
 	cv::Mat readChannel(size_t width, size_t height) {
-		// create buffer for channel data storage
-		size_t buffLen = width * height * sizeof(float);
-		std::vector<char> buff(buffLen);
+		int32_t threshold;
+		readElement(threshold);
 
-		// read channel data to buffer
-		ifile.read(buff.data(), buff.size());
+		cv::Mat result = cv::Mat::zeros(width, height, CV_32S);
 
-		// create resulting cv::Mat and copy channel data to it
-		auto result = cv::Mat(width, height, CV_32F);
-		memcpy(result.data, buff.data(), buff.size());
+		auto ezwDecoder = EzwDecoder(BitStreamReader(&ifile));
+		ezwDecoder.decode(threshold, result);
 
-		return result;
+		// convert int32 to float mat
+		cv::Mat floatResult(result.size(), CV_32F);
+		for (int y = 0; y < result.rows; ++y)
+			for (int x = 0; x < result.cols; ++x)
+				floatResult.at<float>(y, x) = result.at<float>(y, x);
+
+		return floatResult;
+
 	}
 private:
 	template <typename T>

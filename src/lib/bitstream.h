@@ -56,8 +56,11 @@ public:
 
 	void flush() {
 		// when we have something in buffer, write whole byte to stream
-		if (mask != 0x80)
+		if (mask != 0x80) {
 			stream->put(byte);
+			byte = 0;
+			mask = 0x80;
+		}
 	}
 
 	void reset(std::ostream* stream) {

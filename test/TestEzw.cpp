@@ -34,7 +34,7 @@ protected:
 TEST_F(TestEzw, Simple) {
 	std::ostringstream ostream;
 	EzwEncoder ezwEncoder = EzwEncoder(BitStreamWriter(&ostream));
-	int threshold;
+	auto threshold = EzwEncoder::computeInitTreshold(simpleData);
 	cv::Mat expected = simpleData.clone();
 	ezwEncoder.encode(simpleData, threshold);
 
