@@ -56,7 +56,7 @@ public:
 
 	void flush() {
 		// when we have something in buffer, write whole byte to stream
-		if (mask != 0)
+		if (mask != 0x80)
 			stream->put(byte);
 	}
 

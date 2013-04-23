@@ -23,6 +23,8 @@ void EzwEncoder::encode(cv::Mat& mat, int& initTreshold) {
 		subordinatePass(threshold);
 		threshold >>= 1;		// shift to right by one means divide by two
 	} while (threshold > 0);	// TODO: this is lossless, make this changeable to allow lossy compression
+
+	bitStreamWriter.flush();
 }
 
 int32_t EzwEncoder::computeInitTreshold(const cv::Mat& m) {
@@ -31,7 +33,7 @@ int32_t EzwEncoder::computeInitTreshold(const cv::Mat& m) {
 	cv::minMaxIdx(cv::abs(m), nullptr, &absmax);
 
 	// return 2^(floor(log_2(absmax)))
-	return 1 >> static_cast<int32_t>(floor(log10(absmax) / log10(2)));
+	return 1 << static_cast<int32_t>(floor(log10(absmax) / log10(2.0)));
 }
 
 void EzwEncoder::dominantPass(cv::Mat& mat, int32_t threshold) {
@@ -73,10 +75,11 @@ void EzwEncoder::subordinatePass(int32_t threshold) {
 		// and since we are lowering thresholds from max value we
 		// can determine if elm is higher than threshold just by simple
 		// test if elm has same bit set like threshold
-		if ((elm & threshold) != 0)
+		if ((elm & threshold) != 0) {
 			bitStreamWriter.writeBit(true);
-		else
+		} else {
 			bitStreamWriter.writeBit(false);
+		}
 	}
 }
 
@@ -97,12 +100,10 @@ void EzwEncoder::initDominantPassQueue(cv::Mat& m, int32_t threshold) {
 }
 
 EzwCodec::Element EzwEncoder::codeElement(cv::Mat& m, size_t x, size_t y, int32_t threshold) {
-	throw std::runtime_error("EzwEncoder::codeElement: Not implemented yet");
-
 	Element result(x, y);
 	result.code = computeElementCode(m, x, y, threshold);
 	if (result.code == Element::Code::Pos || result.code == Element::Code::Neg) {
-		subordList.push_back(m.at<int32_t>(y, x));
+		subordList.push_back(abs(m.at<int32_t>(y, x)));
 		m.at<int32_t>(y, x) = 0;
 	}
 
@@ -110,8 +111,6 @@ EzwCodec::Element EzwEncoder::codeElement(cv::Mat& m, size_t x, size_t y, int32_
 }
 
 EzwCodec::Element::Code EzwEncoder::computeElementCode(cv::Mat& m, size_t x, size_t y, int32_t threshold) {
-	throw std::runtime_error("EzwEncoder::computeElementCode: Not implemented yet");
-
 	auto coef = m.at<int32_t>(y, x);
 	if (abs(coef) >= threshold) {
 		if (coef >= 0)

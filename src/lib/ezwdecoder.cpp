@@ -16,7 +16,7 @@ void EzwDecoder::decode(int32_t threshold, cv::Mat& mat) {
 		subordinatePass(threshold, mat);
 
 		threshold >>= 1;
-	} while(threshold >= 0);
+	} while(threshold > 0);
 }
 
 void EzwDecoder::dominantPass(int32_t threshold, cv::Mat& mat) {
@@ -98,14 +98,16 @@ EzwCodec::Element EzwDecoder::decodeElement(int32_t threshold, size_t x, size_t 
 
 EzwCodec::Element::Code EzwDecoder::readElementCode() {
 	if (bitStreamReader.readBit()) {
-		if (bitStreamReader.readBit())
+		if (bitStreamReader.readBit()) {
 			return Element::Code::Neg;
-		else
+		} else {
 			return Element::Code::IsolatedZero;
+		}
 	} else {
-		if (bitStreamReader.readBit())
+		if (bitStreamReader.readBit()) {
 			return Element::Code::Pos;
-		else
+		} else {
 			return Element::Code::ZeroTreeRoot;
+		}
 	}
 }
