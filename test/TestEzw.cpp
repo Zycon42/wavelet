@@ -32,14 +32,17 @@ protected:
 };
 
 TEST_F(TestEzw, Simple) {
-	std::ostringstream ostream;
-	EzwEncoder ezwEncoder = EzwEncoder(BitStreamWriter(&ostream));
+	std::ostringstream ods, oss;
+	EzwEncoder ezwEncoder = EzwEncoder(std::make_shared<ArithmeticEncoder>(std::make_shared<BitStreamWriter>(&ods)), std::make_shared<BitStreamWriter>(&oss));
 	auto threshold = EzwEncoder::computeInitTreshold(simpleData);
 	cv::Mat expected = simpleData.clone();
 	ezwEncoder.encode(simpleData, threshold);
 
-	std::istringstream istream(ostream.str());
-	EzwDecoder ezwDecoder = EzwDecoder(BitStreamReader(&istream));
+	std::istringstream ids(ods.str());
+	std::istringstream iss(oss.str());
+	auto bsr1 = std::make_shared<BitStreamReader>(&ids);
+	auto bsr2 = std::make_shared<BitStreamReader>(&iss);
+	EzwDecoder ezwDecoder = EzwDecoder(std::make_shared<ArithmeticDecoder>(bsr1), bsr2);
 	cv::Mat decoded = cv::Mat::zeros(expected.rows, expected.cols, CV_32S);
 	ezwDecoder.decode(threshold, decoded);
 

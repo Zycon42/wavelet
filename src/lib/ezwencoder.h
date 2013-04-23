@@ -10,16 +10,19 @@
 
 #include "ezw.h"
 #include "bitstream.h"
+#include "arithmencoder.h"
 
 #include <opencv2/core/core.hpp>
 
+#include <memory>
 #include <deque>
 #include <list>
 
 class EzwEncoder : public EzwCodec
 {
 public:
-	explicit EzwEncoder(BitStreamWriter bsw) : bitStreamWriter(std::move(bsw)) { }
+	EzwEncoder(std::shared_ptr<ArithmeticEncoder>& aencoder, std::shared_ptr<BitStreamWriter>& bsw) 
+		: dataModel(4), aencoder(aencoder), bitStreamWriter(bsw) { }
 
 	void encode(cv::Mat& mat, int32_t threshold);
 
@@ -34,7 +37,9 @@ private:
 	bool isZerotreeRoot(cv::Mat& m, size_t x, size_t y, int32_t threshold);
 	void outputCode(Element::Code code);
 
-	BitStreamWriter bitStreamWriter;
+	AdaptiveDataModel dataModel;
+	std::shared_ptr<ArithmeticEncoder> aencoder;
+	std::shared_ptr<BitStreamWriter> bitStreamWriter;
 
 	std::deque<Element> dpQueue;
 	std::list<int32_t> subordList;

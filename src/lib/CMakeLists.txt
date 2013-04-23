@@ -12,6 +12,9 @@ set(ZPO13_LIB_HEADERS
 	ezw.h
 	ezwencoder.h
 	ezwdecoder.h
+	arithmcodec.h
+	arithmencoder.h
+	arithmdecoder.h
 )
 
 set(ZPO13_LIB_SOURCES
@@ -20,6 +23,9 @@ set(ZPO13_LIB_SOURCES
 	wlfimage.cpp
 	ezwencoder.cpp
 	ezwdecoder.cpp
+	arithmcodec.cpp
+	arithmencoder.cpp
+	arithmdecoder.cpp
 )
 
 add_library(zpo13 ${ZPO13_LIB_HEADERS} ${ZPO13_LIB_SOURCES})

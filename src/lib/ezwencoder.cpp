@@ -11,17 +11,26 @@
 #include <cstdint>
 #include <cmath>
 
+//#define DUMP_RES
+
 void EzwEncoder::encode(cv::Mat& mat, int32_t threshold) {
 	if (mat.type() != CV_32S)
 		throw std::runtime_error("EzwEncoder::encode can operate only on 32b integer matrices");
 
 	do {
 		dominantPass(mat, threshold);
+
 		subordinatePass(threshold);
+
 		threshold >>= 1;		// shift to right by one means divide by two
 	} while (threshold > 0);	// TODO: this is lossless, make this changeable to allow lossy compression
 
-	bitStreamWriter.flush();
+#ifdef DUMP_RES
+	std::cerr << std::endl;
+#endif
+
+	aencoder->close();
+	bitStreamWriter->flush();
 }
 
 int32_t EzwEncoder::computeInitTreshold(const cv::Mat& m) {
@@ -73,9 +82,15 @@ void EzwEncoder::subordinatePass(int32_t threshold) {
 		// can determine if elm is higher than threshold just by simple
 		// test if elm has same bit set like threshold
 		if ((elm & threshold) != 0) {
-			bitStreamWriter.writeBit(true);
+#ifdef DUMP_RES
+			std::cerr << "1";
+#endif
+			bitStreamWriter->writeBit(true);
 		} else {
-			bitStreamWriter.writeBit(false);
+#ifdef DUMP_RES
+			std::cerr << "0";
+#endif
+			bitStreamWriter->writeBit(false);
 		}
 	}
 }
@@ -163,25 +178,25 @@ bool EzwEncoder::isZerotreeRoot(cv::Mat& m, size_t x, size_t y, int32_t threshol
 }
 
 void EzwEncoder::outputCode(Element::Code code) {
+#ifdef DUMP_RES
 	switch (code)
 	{
 	case EzwCodec::Element::Code::Pos:
-		bitStreamWriter.writeBit(false);
-		bitStreamWriter.writeBit(true);
+		std::cerr << "p";
 		break;
 	case EzwCodec::Element::Code::Neg:
-		bitStreamWriter.writeBit(true);
-		bitStreamWriter.writeBit(true);
+		std::cerr << "n";
 		break;
 	case EzwCodec::Element::Code::IsolatedZero:
-		bitStreamWriter.writeBit(true);
-		bitStreamWriter.writeBit(false);
+		std::cerr << "z";
 		break;
 	case EzwCodec::Element::Code::ZeroTreeRoot:
-		bitStreamWriter.writeBit(false);
-		bitStreamWriter.writeBit(false);
+
+		std::cerr << "t";
 		break;
 	default:
 		break;
 	}
+#endif
+	aencoder->encode(static_cast<unsigned>(code), &dataModel);
 }

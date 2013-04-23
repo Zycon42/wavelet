@@ -18,6 +18,7 @@ if (GTEST_FOUND)
 		TestDwt.cpp
 		TestImage.cpp
 		TestEzw.cpp
+		TestAC.cpp
 	)
 	
 	add_executable(tests ${ZPO13_TESTS_SOURCES})

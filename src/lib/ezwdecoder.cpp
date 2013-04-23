@@ -7,16 +7,23 @@
 
 #include "ezwdecoder.h"
 
+//#define DUMP_RES
+
 void EzwDecoder::decode(int32_t threshold, cv::Mat& mat) {
 	if (mat.type() != CV_32S)
 		throw std::runtime_error("EzwDecoder::decode can operate only on 32b integer matrices");
 
 	do {
 		dominantPass(threshold, mat);
+
 		subordinatePass(threshold, mat);
 
 		threshold >>= 1;
 	} while(threshold > 0);
+
+#ifdef DUMP_RES
+	std::cerr << std::endl;
+#endif
 }
 
 void EzwDecoder::dominantPass(int32_t threshold, cv::Mat& mat) {
@@ -55,12 +62,19 @@ void EzwDecoder::subordinatePass(int32_t threshold, cv::Mat& mat) {
 	for (size_t i = 0; i < pixels; ++i) {
 		auto coord = subordVec[i];
 		auto elm = mat.at<int32_t>(coord.y, coord.x);
-		if (bitStreamReader.readBit()) {
+		if (bitStreamReader->readBit()) {
+#ifdef DUMP_RES
+			std::cerr << "1";
+#endif
 			if (elm < 0)
 				mat.at<int32_t>(coord.y, coord.x) = elm - threshold;
 			else
 				mat.at<int32_t>(coord.y, coord.x) = elm + threshold;
-		}
+		} 
+#ifdef DUMP_RES
+		else
+			std::cerr << "0";
+#endif
 	}
 }
 
@@ -97,17 +111,50 @@ EzwCodec::Element EzwDecoder::decodeElement(int32_t threshold, size_t x, size_t 
 }
 
 EzwCodec::Element::Code EzwDecoder::readElementCode() {
-	if (bitStreamReader.readBit()) {
-		if (bitStreamReader.readBit()) {
-			return Element::Code::Neg;
+	auto code = static_cast<Element::Code>(adecoder->decode(&dataModel));
+#ifdef DUMP_RES
+	switch (code)
+	{
+	case EzwCodec::Element::Code::Pos:
+		std::cerr << "p";
+		break;
+	case EzwCodec::Element::Code::Neg:
+		std::cerr << "n";
+		break;
+	case EzwCodec::Element::Code::IsolatedZero:
+		std::cerr << "z";
+		break;
+	case EzwCodec::Element::Code::ZeroTreeRoot:
+		std::cerr << "t";
+		break;
+	default:
+		break;
+	}
+#endif
+	return code;
+/*	if (adecoder->reader()->readBit()) {
+		if (adecoder->reader()->readBit()) {
+#ifdef DUMP_RES
+			std::cerr << "t";
+#endif
+			return EzwCodec::Element::Code::ZeroTreeRoot;
 		} else {
-			return Element::Code::IsolatedZero;
+#ifdef DUMP_RES
+			std::cerr << "z";
+#endif
+			return EzwCodec::Element::Code::IsolatedZero;
 		}
 	} else {
-		if (bitStreamReader.readBit()) {
-			return Element::Code::Pos;
+		if (adecoder->reader()->readBit()) {
+#ifdef DUMP_RES
+			std::cerr << "n";
+#endif
+			return EzwCodec::Element::Code::Neg;
 		} else {
-			return Element::Code::ZeroTreeRoot;
+#ifdef DUMP_RES
+			std::cerr << "p";
+#endif
+			return EzwCodec::Element::Code::Pos;
 		}
-	}
+	}*/
 }

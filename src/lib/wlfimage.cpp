@@ -16,6 +16,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -78,8 +79,22 @@ public:
 		auto threshold = EzwEncoder::computeInitTreshold(intChannel);
 		writeElement(threshold);
 
-		auto ezwEncoder = EzwEncoder(BitStreamWriter(&ofile));
+		// create separate streams for dominant and subordinant ezw passes
+		std::ostringstream dominantSS, subordSS;
+		auto dominantBS = std::make_shared<BitStreamWriter>(&dominantSS);
+		auto subordBS = std::make_shared<BitStreamWriter>(&subordSS);
+
+		// ezw encode
+		auto ezwEncoder = EzwEncoder(std::make_shared<ArithmeticEncoder>(dominantBS), subordBS);
 		ezwEncoder.encode(intChannel, threshold);
+
+		// write passes to file
+		auto dominantEncoded = dominantSS.str();
+		auto subordEncoded = subordSS.str();
+		writeElement(dominantEncoded.size());
+		writeElement(subordEncoded.size());
+		ofile.write(dominantEncoded.data(), dominantEncoded.size());
+		ofile.write(subordEncoded.data(), subordEncoded.size());
 	}
 private:
 	cv::Mat convertFloatMatToInt(const cv::Mat& m) {
@@ -160,9 +175,22 @@ public:
 		int32_t threshold;
 		readElement(threshold);
 
-		cv::Mat result = cv::Mat::zeros(width, height, CV_32S);
+		size_t dominantSize, subordSize;
+		readElement(dominantSize);
+		readElement(subordSize);
 
-		auto ezwDecoder = EzwDecoder(BitStreamReader(&ifile));
+		std::unique_ptr<char[]> dominantPass(new char[dominantSize]);
+		std::unique_ptr<char[]> subordPass(new char[subordSize]);
+		ifile.read(dominantPass.get(), dominantSize);
+		ifile.read(subordPass.get(), subordSize);
+
+		std::istringstream dominantSS(std::string(dominantPass.get(), dominantSize));
+		std::istringstream subordSS(std::string(subordPass.get(), subordSize));
+		auto dominantBS = std::make_shared<BitStreamReader>(&dominantSS);
+		auto subordBS = std::make_shared<BitStreamReader>(&subordSS);
+
+		cv::Mat result = cv::Mat::zeros(width, height, CV_32S);
+		auto ezwDecoder = EzwDecoder(std::make_shared<ArithmeticDecoder>(dominantBS), subordBS);
 		ezwDecoder.decode(threshold, result);
 
 		return convertIntMatToFloat(result);

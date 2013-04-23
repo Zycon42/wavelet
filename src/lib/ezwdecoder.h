@@ -10,16 +10,19 @@
 
 #include "ezw.h"
 #include "bitstream.h"
+#include "arithmdecoder.h"
 
 #include <opencv2/core/core.hpp>
 
+#include <memory>
 #include <deque>
 #include <vector>
 
 class EzwDecoder : public EzwCodec
 {
 public:
-	explicit EzwDecoder(BitStreamReader bsr) : bitStreamReader(std::move(bsr)), pixels(0) { }
+	EzwDecoder(std::shared_ptr<ArithmeticDecoder>& adecoder, std::shared_ptr<BitStreamReader>& bsr) 
+		: dataModel(4), adecoder(adecoder), bitStreamReader(bsr), pixels(0) { }
 
 	void decode(int32_t threshold, cv::Mat& mat);
 private:
@@ -30,7 +33,10 @@ private:
 	Element decodeElement(int32_t threshold, size_t x, size_t y, cv::Mat& m);
 	Element::Code readElementCode();
 
-	BitStreamReader bitStreamReader;
+	AdaptiveDataModel dataModel;
+	std::shared_ptr<ArithmeticDecoder> adecoder;
+
+	std::shared_ptr<BitStreamReader> bitStreamReader;
 
 	std::deque<Element> dpQueue;
 
