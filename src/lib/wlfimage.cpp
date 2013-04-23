@@ -60,6 +60,8 @@ class ImageWriter
 {
 public:
 	explicit ImageWriter(const char* file) : ofile(file, std::ios_base::binary) {
+		if (!ofile)
+			throw std::runtime_error("Unable to open file\"" + std::string(file) + "\" for writing!");
 	}
 
 	void writeHeader(const Header& header) {
@@ -157,7 +159,10 @@ void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /
 class ImageReader
 {
 public:
-	ImageReader(const char* file) : ifile(file, std::ios_base::binary) { }
+	ImageReader(const char* file) : ifile(file, std::ios_base::binary) {
+		if (!ifile)
+			throw std::runtime_error("Unable to open file\"" + std::string(file) + "\" for reading!");
+	}
 
 	Header readHeader() {
 		char magicBuff[Header::MAGIC_LEN + 1] = {0};	// +1 for trailing zero
