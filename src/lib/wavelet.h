@@ -10,12 +10,16 @@
 
 #include "utils.h"
 
-/**
- * Wavelet base abstract class
- */
-class Wavelet 
+/// this class is needed, because we want some nontemplate Wavelet base class
+/// for restriction in WaveletFactory
+class WaveletBase { };
+
+template <typename T>
+class Wavelet : public WaveletBase
 {
 public:
+	typedef T impl_type;
+
 	virtual ~Wavelet() { }
 
 	/**
@@ -24,14 +28,14 @@ public:
 	 *     Its size must be even. First half will contain approx coefs and
 	 *     second half detail coefs.
 	 */
-	virtual void forward(ArrayRef<float> signal) = 0;
+	virtual void forward(ArrayRef<T> signal) = 0;
 
 	/**
 	 * Performs one level in place idwt with this wavelet.
 	 * @param dwt result from forward method that will be replaced with
 	 *     its original if their size is same
 	 */
-	virtual void inverse(ArrayRef<float> dwt) = 0;
+	virtual void inverse(ArrayRef<T> dwt) = 0;
 };
 
 #endif // !WAVELET_H

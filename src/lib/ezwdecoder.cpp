@@ -14,6 +14,7 @@ void EzwDecoder::decode(int32_t threshold, int32_t minThreshold, cv::Mat& mat) {
 		throw std::runtime_error("EzwDecoder::decode can operate only on 32b integer matrices");
 
 	do {
+		dataModel.reset();
 		dominantPass(threshold, mat);
 
 		subordinatePass(threshold, minThreshold, mat);

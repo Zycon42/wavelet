@@ -16,7 +16,7 @@
  * Biorthogonal Cohen-Daubechies-Feauveau 9/7 wavelet.
  * Lifting implementation
  */
-class Cdf97Wavelet : public Wavelet
+class Cdf97Wavelet : public Wavelet<float>
 {
 public:
 	virtual void forward(ArrayRef<float> signal);

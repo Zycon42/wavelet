@@ -148,10 +148,10 @@ void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /
 	// TODO: chromatic subsampling
 
 	// dwt with specified levels with cdf97 wavelet
-	WaveletTransform wt(std::make_shared<Cdf97Wavelet>(), params.dwtLevels);
+	std::unique_ptr<WaveletTransform> wt(WaveletTransformFactory::create<Cdf97Wavelet>(params.dwtLevels));
 	// handle channels
 	for (auto& channel : channels) {
-		wt.forward2d(channel);
+		wt->forward2d(channel);
 		writer.writeChannel(channel, params.compressRate);
 	}
 }
@@ -236,11 +236,11 @@ cv::Mat WlfImage::read(const char* file) {
 	// read channels
 	int numChannels = header.pf == PixelFormat::Type::Gray ? 1 : 3;
 	std::vector<cv::Mat> channels(numChannels);
-	WaveletTransform wt(std::make_shared<Cdf97Wavelet>(), header.dwtLevels);
+	std::unique_ptr<WaveletTransform> wt(WaveletTransformFactory::create<Cdf97Wavelet>(header.dwtLevels));
 	for (int i = 0; i < numChannels; ++i) {
 		// read channel and perform idwt
 		auto channel = reader.readChannel(header.width, header.height);
-		wt.inverse2d(channel);
+		wt->inverse2d(channel);
 
 		// convert result to 8bit
 		channel.convertTo(channels[i], CV_8U);

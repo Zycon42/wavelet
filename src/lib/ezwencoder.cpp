@@ -18,6 +18,7 @@ void EzwEncoder::encode(cv::Mat& mat, int32_t threshold, int32_t minThreshold) {
 		throw std::runtime_error("EzwEncoder::encode can operate only on 32b integer matrices");
 
 	do {
+		dataModel.reset();
 		dominantPass(mat, threshold);
 
 		subordinatePass(threshold, minThreshold);

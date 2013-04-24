@@ -7,6 +7,7 @@ set(ZPO13_LIB_HEADERS
 	utils.h
 	wavelet.h
 	cdf97wavelet.h
+	cdf53wavelet.h
 	wlfimage.h
 	bitstream.h
 	ezw.h
@@ -20,6 +21,7 @@ set(ZPO13_LIB_HEADERS
 set(ZPO13_LIB_SOURCES
 	wavelettransform.cpp
 	cdf97wavelet.cpp
+	cdf53wavelet.cpp
 	wlfimage.cpp
 	ezwencoder.cpp
 	ezwdecoder.cpp
