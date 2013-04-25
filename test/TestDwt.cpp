@@ -46,7 +46,7 @@ TEST_F(TestDwt, TwoDimCdf97) {
 	EXPECT_NEAR(0.0, computeDifference(dimg, orgDimg), 1e-4);
 }
 
-/*TEST_F(TestDwt, TwoDimCdf53) {
+TEST_F(TestDwt, TwoDimCdf53) {
 	std::unique_ptr<WaveletTransform> cdf53Wt(WaveletTransformFactory::create<Cdf53Wavelet>(1));
 
 	cv::Mat image = cv::imread("lena.png", CV_LOAD_IMAGE_COLOR);
@@ -64,8 +64,8 @@ TEST_F(TestDwt, TwoDimCdf97) {
 	cdf53Wt->inverse2d(dimg);
 	cv::imwrite("inverse.png", dimg.reshape(3));
 
-	EXPECT_NEAR(0.0, computeDifference(dimg, orgDimg), 1e-4);
-}*/
+	EXPECT_DOUBLE_EQ(0.0, computeDifference(dimg, orgDimg));
+}
 
 TEST_F(TestDwt, OneDimCdf53) {
 	auto cdf53wavelet = Cdf53Wavelet();

@@ -57,7 +57,7 @@ void WaveletTransformImpl<T, Traits>::forward2d(cv::Mat& signal) {
 			ArrayRef<value_type> rowPtr(roi.ptr<value_type>(i), roi.cols);
 			wavelet->forward(rowPtr);
 		}
-		// transpose matrix so col transformation can be done in rows
+		// transform cols by transposing and then transforming by rows
 		cv::Mat transposed = roi.t();
 		for (int i = 0; i < transposed.rows; ++i) {
 			ArrayRef<value_type> rowPtr(transposed.ptr<value_type>(i), transposed.cols);
@@ -78,12 +78,7 @@ void WaveletTransformImpl<T, Traits>::inverse2d(cv::Mat& dwt) {
 	size_t factor = 1 << (numLevels - 1);
 	cv::Mat roi(dwt, cv::Rect(cv::Point(0, 0), cv::Size(dwt.cols / factor, dwt.rows / factor)));
 	for (int i = 0; i < numLevels; ++i) {
-		// transform rows
-		for (int i = 0; i < roi.rows; ++i) {
-			ArrayRef<value_type> rowPtr(roi.ptr<value_type>(i), roi.cols);
-			wavelet->inverse(rowPtr);
-		}
-		// transpose matrix so col transformation can be done in rows
+		// transform cols by transposing and then transforming by rows
 		cv::Mat transposed = roi.t();
 		for (int i = 0; i < transposed.rows; ++i) {
 			ArrayRef<value_type> rowPtr(transposed.ptr<value_type>(i), transposed.cols);
@@ -92,10 +87,20 @@ void WaveletTransformImpl<T, Traits>::inverse2d(cv::Mat& dwt) {
 		// copy transposed to roi
 		cv::Mat(transposed.t()).copyTo(roi);
 
+		// transform rows
+		for (int i = 0; i < roi.rows; ++i) {
+			ArrayRef<value_type> rowPtr(roi.ptr<value_type>(i), roi.cols);
+			wavelet->inverse(rowPtr);
+		}
+
 		// extend roi
 		roi.adjustROI(0, roi.rows, 0, roi.cols);
 	}
 }
 
+// this is explicit template instantiation
+// we must use this because we have template implementation in cpp file
+// instantiation of WaveletTransformImpl with other types than those
+// listed here will fail on horrible linked errors!
 template class WaveletTransformImpl<int32_t>;
 template class WaveletTransformImpl<float>;

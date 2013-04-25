@@ -83,6 +83,13 @@ private:
 	int numLevels;
 };
 
+// Extern template instantiation, actual instantiation is done in 
+// walettransform.cpp, by using this we save some compile time.
+// Instantiation of WaveletTransformImpl with other types than those
+// listed here will fail on horrible linked errors!
+extern template class WaveletTransformImpl<int32_t>;
+extern template class WaveletTransformImpl<float>;
+
 /**
  * Factory for wavelet transform that creates right WaveletTransform object for given wavelet.
  */
