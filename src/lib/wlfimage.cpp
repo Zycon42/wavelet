@@ -28,7 +28,7 @@ void WlfImage::PixelFormat::transformFrom(Type type, const cv::Mat& src, cv::Mat
 	using namespace std::placeholders;
 	static std::function<void (const cv::Mat&, cv::Mat&)> colorTransforms[] = {
 		std::bind(cv::cvtColor, _1, _2, CV_RGB2BGR, 0), std::bind(cv::cvtColor, _1, _2, CV_GRAY2BGR, 0),
-		std::bind(cv::cvtColor, _1, _2, CV_YCrCb2BGR, 0)
+		std::bind(cv::cvtColor, _1, _2, CV_YCrCb2BGR, 0), std::bind(cv::cvtColor, _1, _2, CV_YCrCb2BGR, 0)
 	};
 
 	colorTransforms[static_cast<int>(type)](src, dest);
@@ -38,7 +38,7 @@ void WlfImage::PixelFormat::transformTo(Type type, const cv::Mat& src, cv::Mat& 
 	using namespace std::placeholders;
 	static std::function<void (const cv::Mat&, cv::Mat&)> colorTransforms[] = {
 		std::bind(cv::cvtColor, _1, _2, CV_BGR2RGB, 0), std::bind(cv::cvtColor, _1, _2, CV_BGR2GRAY, 0),
-		std::bind(cv::cvtColor, _1, _2, CV_BGR2YCrCb, 0)
+		std::bind(cv::cvtColor, _1, _2, CV_BGR2YCrCb, 0), std::bind(cv::cvtColor, _1, _2, CV_BGR2YCrCb, 0)
 	};
 
 	colorTransforms[static_cast<int>(type)](src, dest);
@@ -170,7 +170,7 @@ void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /
 	// dwt with specified levels
 	auto wt = createWaveletTransform(params.waveletType, params.dwtLevels);
 
-	// convert input to one channel 32bit float
+	// convert input to wavelet type
 	cv::Mat image;
 	colorTransformed.convertTo(image, wt->getType());
 
@@ -179,7 +179,14 @@ void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /
 	cv::split(image, channels);
 	assert(channels.size() == 3);
 
-	// TODO: chromatic subsampling
+	// chromatic subsampling
+	if (params.pf == PixelFormat::Type::YCbCr422) {
+		cv::Mat cb = channels[1].clone();
+		cv::resize(cb, channels[1], cv::Size(), 0.5, 1.0, cv::INTER_NEAREST);
+
+		cv::Mat cr = channels[2].clone();
+		cv::resize(cr, channels[2], cv::Size(), 0.5, 1.0, cv::INTER_NEAREST);
+	}
 
 	// dwt channels and write it
 	for (auto& channel : channels) {
@@ -233,7 +240,7 @@ public:
 		auto dominantBS = std::make_shared<BitStreamReader>(&dominantSS);
 		auto subordBS = std::make_shared<BitStreamReader>(&subordSS);
 
-		cv::Mat result = cv::Mat::zeros(width, height, CV_32S);
+		cv::Mat result = cv::Mat::zeros(height, width, CV_32S);
 		auto ezwDecoder = EzwDecoder(std::make_shared<ArithmeticDecoder>(dominantBS), subordBS);
 		ezwDecoder.decode(threshold, minTreshold, result);
 
@@ -264,15 +271,30 @@ cv::Mat WlfImage::read(const char* file) {
 	std::vector<cv::Mat> channels(numChannels);
 	auto wt = createWaveletTransform(header.waveletType, header.dwtLevels);
 	for (int i = 0; i < numChannels; ++i) {
-		// read channel and perform idwt
-		auto channel = dequantize(reader.readChannel(header.width, header.height), header.quantStep);
+		size_t width = header.width, height = header.height;
+		// when colors where subsampled we must adjust current channel size
+		if (header.pf == PixelFormat::Type::YCbCr422 && i > 0)
+			width /= 2;
 
+		// read channel and dequantize
+		auto channel = dequantize(reader.readChannel(width, height), header.quantStep);
+
+		// convert channel to wavelet type and perform idwt
 		cv::Mat convertedChannel;
 		channel.convertTo(convertedChannel, wt->getType());
 		wt->inverse2d(convertedChannel);
 
-		// convert result to 8bit
+		// convert result to final 8bit
 		convertedChannel.convertTo(channels[i], CV_8U);
+	}
+
+	// Chromatic subsampling
+	if (header.pf == PixelFormat::Type::YCbCr422) {
+		cv::Mat cb = channels[1].clone();
+		cv::resize(cb, channels[1], cv::Size(), 2.0, 1.0, cv::INTER_NEAREST);
+
+		cv::Mat cr = channels[2].clone();
+		cv::resize(cr, channels[2], cv::Size(), 2.0, 1.0, cv::INTER_NEAREST);
 	}
 
 	// merge channels to one image

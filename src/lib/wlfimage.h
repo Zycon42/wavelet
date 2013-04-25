@@ -26,7 +26,7 @@ public:
 	{
 		/// Supported types
 		enum class Type : uint8_t {
-			RGB, Gray, YCbCr444
+			RGB, Gray, YCbCr444, YCbCr422
 		};
 
 		static void transformTo(Type, const cv::Mat&, cv::Mat&);

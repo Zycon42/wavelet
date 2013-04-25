@@ -22,7 +22,8 @@ typedef std::map<std::string, WlfImage::PixelFormat::Type> PixelFormatMap;
 typedef std::map<std::string, WlfImage::WaveletType> WaveletTypeMap;
 
 const PixelFormatMap pfMap = create_map<std::string, WlfImage::PixelFormat::Type>
-	("rgb", WlfImage::PixelFormat::Type::RGB)("ycbcr444", WlfImage::PixelFormat::Type::YCbCr444);
+	("rgb", WlfImage::PixelFormat::Type::RGB)("ycbcr444", WlfImage::PixelFormat::Type::YCbCr444)
+	("ycbcr422", WlfImage::PixelFormat::Type::YCbCr422);
 
 const WaveletTypeMap wtMap = create_map<std::string, WlfImage::WaveletType>
 	("9/7", WlfImage::WaveletType::Cdf97)("5/3", WlfImage::WaveletType::Cdf53);
@@ -57,7 +58,7 @@ void compress(const std::string& in, const std::string& out, const OptionsMap& o
 void printUsage() {
 	std::cout << "wlfconv [-f FORMAT -w WLET -l DWTLEVELS -c RATE -q STEP] INPUT OUTPUT\n"
 		<< "wlfconv -d INPUT OUTPUT\n"
-		<< "  -f FORMAT     pixel format one of [rgb, ycbcr444(default)]\n"
+		<< "  -f FORMAT     pixel format one of [rgb, ycbcr444(default), ycbcr422]\n"
 		<< "  -w WLET       wavelet type, one of [9/7(default), 5/3]\n"
 		<< "  -l DWTLEVELS  resolution of discrete wavelet transfom default(4)\n"
 		<< "  -c RATE       number of bitplanes that will be discarted default(0)\n"
