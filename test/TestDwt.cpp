@@ -8,6 +8,8 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include <memory>
+#include <cstdlib>
+#include <algorithm>
 
 class TestDwt : public ::testing::Test
 {
@@ -44,8 +46,8 @@ TEST_F(TestDwt, TwoDimCdf97) {
 	EXPECT_NEAR(0.0, computeDifference(dimg, orgDimg), 1e-4);
 }
 
-TEST_F(TestDwt, TwoDimCdf53) {
-	std::unique_ptr<WaveletTransform> cdf53Wt(WaveletTransformFactory::create<Cdf53Wavelet>(2));
+/*TEST_F(TestDwt, TwoDimCdf53) {
+	std::unique_ptr<WaveletTransform> cdf53Wt(WaveletTransformFactory::create<Cdf53Wavelet>(1));
 
 	cv::Mat image = cv::imread("lena.png", CV_LOAD_IMAGE_COLOR);
 	ASSERT_FALSE(!image.data);
@@ -63,4 +65,19 @@ TEST_F(TestDwt, TwoDimCdf53) {
 	cv::imwrite("inverse.png", dimg.reshape(3));
 
 	EXPECT_NEAR(0.0, computeDifference(dimg, orgDimg), 1e-4);
+}*/
+
+TEST_F(TestDwt, OneDimCdf53) {
+	auto cdf53wavelet = Cdf53Wavelet();
+	std::vector<int> data(512);
+	std::generate(data.begin(), data.end(), [] () { return rand() % 255; });
+
+	auto origData = data;
+
+	cdf53wavelet.forward(data);
+	cdf53wavelet.inverse(data);
+
+	for (size_t i = 0; i < origData.size(); i++) {
+		EXPECT_EQ(origData[i], data[i]);
+	}
 }

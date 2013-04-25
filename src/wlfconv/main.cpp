@@ -19,9 +19,13 @@
 
 typedef std::map<std::string, std::string> OptionsMap;
 typedef std::map<std::string, WlfImage::PixelFormat::Type> PixelFormatMap;
+typedef std::map<std::string, WlfImage::WaveletType> WaveletTypeMap;
 
 const PixelFormatMap pfMap = create_map<std::string, WlfImage::PixelFormat::Type>
 	("rgb", WlfImage::PixelFormat::Type::RGB)("ycbcr444", WlfImage::PixelFormat::Type::YCbCr444);
+
+const WaveletTypeMap wtMap = create_map<std::string, WlfImage::WaveletType>
+	("9/7", WlfImage::WaveletType::Cdf97)("5/3", WlfImage::WaveletType::Cdf53);
 
 template <typename T>
 T extractFromString(const std::string& str) {
@@ -44,16 +48,20 @@ void compress(const std::string& in, const std::string& out, const OptionsMap& o
 	WlfImage::Params params;
 	params.dwtLevels = extractFromString<decltype(params.dwtLevels)>(options.at("l"));
 	params.compressRate = extractFromString<decltype(params.compressRate)>(options.at("c"));
+	params.quantizationStep = extractFromString<decltype(params.quantizationStep)>(options.at("q"));
+	params.waveletType = wtMap.at(options.at("w"));
 	params.pf = pfMap.at(options.at("f"));
 	WlfImage::save(out.c_str(), img, params);
 }
 
 void printUsage() {
-	std::cout << "wlfconv [-f FORMAT -l DWTLEVELS -c RATE] INPUT OUTPUT\n"
+	std::cout << "wlfconv [-f FORMAT -w WLET -l DWTLEVELS -c RATE -q STEP] INPUT OUTPUT\n"
 		<< "wlfconv -d INPUT OUTPUT\n"
 		<< "  -f FORMAT     pixel format one of [rgb, ycbcr444(default)]\n"
+		<< "  -w WLET       wavelet type, one of [9/7(default), 5/3]\n"
 		<< "  -l DWTLEVELS  resolution of discrete wavelet transfom default(4)\n"
 		<< "  -c RATE       number of bitplanes that will be discarted default(0)\n"
+		<< "  -q STEP       scalar quantization step default(1)\n"
 		<< "  -d            this option means decompression instead compression\n"
 		<< "  INPUT         input file in standard raster format (that opencv can handle)\n"
 		<< "  OUTPUT        output file in wlf format\n";
@@ -101,7 +109,7 @@ std::vector<std::string> parseCmdline(int argc, char* argv[], OptionsMap& option
 int main(int argc, char* argv[]) {
 	std::string input, output;
 	OptionsMap options = create_map<OptionsMap::key_type, OptionsMap::mapped_type>
-		("d", "false")("f", "ycbcr444")("c", "0")("l", "4");
+		("d", "false")("f", "ycbcr444")("w", "9/7")("c", "0")("q", "1")("l", "4");
 	try {
 		auto lefovers = parseCmdline(argc, argv, options);
 		if (lefovers.size() != 2)

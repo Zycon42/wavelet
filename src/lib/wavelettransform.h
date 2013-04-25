@@ -21,6 +21,8 @@ class WaveletTransform
 public:
 	virtual ~WaveletTransform() { }
 
+	virtual int getType() = 0;
+
 	virtual void forward2d(cv::Mat& signal) = 0;
 
 	virtual void inverse2d(cv::Mat& dwt) = 0;
@@ -57,6 +59,10 @@ public:
 	void forward1d(std::vector<value_type>& signal);
 
 	void inverse1d(std::vector<value_type>& dwt);
+
+	virtual int getType() {
+		return traits_type::cvMatType;
+	}
 
 	virtual void forward2d(cv::Mat& signal);
 

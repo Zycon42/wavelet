@@ -9,6 +9,7 @@
 
 #include "wavelettransform.h"
 #include "cdf97wavelet.h"
+#include "cdf53wavelet.h"
 #include "ezwencoder.h"
 #include "ezwdecoder.h"
 
@@ -43,6 +44,18 @@ void WlfImage::PixelFormat::transformTo(Type type, const cv::Mat& src, cv::Mat& 
 	colorTransforms[static_cast<int>(type)](src, dest);
 }
 
+static std::unique_ptr<WaveletTransform> createWaveletTransform(WlfImage::WaveletType type, int numlevels) {
+	switch (type)
+	{
+	case WlfImage::WaveletType::Cdf97:
+		return std::unique_ptr<WaveletTransform>(WaveletTransformFactory::create<Cdf97Wavelet>(numlevels));
+	case WlfImage::WaveletType::Cdf53:
+		return std::unique_ptr<WaveletTransform>(WaveletTransformFactory::create<Cdf53Wavelet>(numlevels));
+	default:
+		throw std::runtime_error("Unknown wavelet");
+	}
+}
+
 struct Header
 {
 	static const char* MAGIC;
@@ -52,6 +65,8 @@ struct Header
 	uint32_t height;
 	WlfImage::PixelFormat::Type pf;
 	uint8_t dwtLevels;
+	WlfImage::WaveletType waveletType;
+	uint16_t quantStep;
 };
 
 const char* Header::MAGIC = "\x89\x57\x4c\x46\x0d\x0a\x1a\x0a";
@@ -72,13 +87,14 @@ public:
 		writeElement(header.height);
 		writeElement(header.pf);
 		writeElement(header.dwtLevels);
+		writeElement(header.waveletType);
+		writeElement(header.quantStep);
 	}
 
-	void writeChannel(const cv::Mat& channel, size_t compressRate) {
-		// convert float mat to int32
-		cv::Mat intChannel = convertFloatMatToInt(channel);
+	void writeChannel(cv::Mat& channel, size_t compressRate) {
+		assert(channel.type() == CV_32S);
 
-		auto threshold = EzwEncoder::computeInitTreshold(intChannel);
+		auto threshold = EzwEncoder::computeInitTreshold(channel);
 		writeElement(threshold);
 
 		int32_t minTreshold = compressRate != 0 ? 1 << (compressRate - 1) : 0;
@@ -91,7 +107,7 @@ public:
 
 		// ezw encode
 		auto ezwEncoder = EzwEncoder(std::make_shared<ArithmeticEncoder>(dominantBS), subordBS);
-		ezwEncoder.encode(intChannel, threshold, minTreshold);
+		ezwEncoder.encode(channel, threshold, minTreshold);
 
 		// write passes to file
 		auto dominantEncoded = dominantSS.str();
@@ -102,18 +118,6 @@ public:
 		ofile.write(subordEncoded.data(), subordEncoded.size());
 	}
 private:
-	cv::Mat convertFloatMatToInt(const cv::Mat& m) {
-		assert(m.type() == CV_32F);
-
-		cv::Mat result(m.size(), CV_32S);
-		for (int y = 0; y < m.rows; ++y)
-			for (int x = 0; x < m.cols; ++x)
-				// convert to 19,13 fixed precision
-				result.at<int32_t>(y, x) = static_cast<int32_t>(m.at<float>(y, x) * (1 << 13));
-
-		return result;
-	}
-
 	template <typename T>
 	void writeElement(const T& elm) {
 		ofile.write(reinterpret_cast<const char*>(&elm), sizeof(elm));
@@ -124,21 +128,51 @@ private:
 	std::ofstream ofile;
 };
 
+template <typename T>
+int signum(T val) {
+	return (T(0) < val) - (val < T(0));
+}
+
+static cv::Mat scalarQuantize(const cv::Mat& m, int step) {
+	cv::Mat result(m.size(), CV_32S);
+	if (m.type() == CV_32F) {
+		for (int y = 0; y < m.rows; ++y) {
+			for (int x = 0; x < m.cols; ++x) {
+				float val = m.at<float>(y, x);
+				result.at<int32_t>(y, x) = static_cast<int32_t>(signum(val) * floor(abs(val) / step + 0.5));
+			}
+		}
+	} else if (m.type() == CV_32S) {
+		for (int y = 0; y < m.rows; ++y) {
+			for (int x = 0; x < m.cols; ++x) {
+				int32_t val = m.at<int32_t>(y, x);
+				result.at<int32_t>(y, x) = static_cast<int32_t>(signum(val) * floor(abs(val) / step + 0.5));
+			}
+		}
+	} else
+		throw std::runtime_error("scalarQuantize: invalid matrix type");
+
+	return result;
+}
+
 void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /* = Params */) {
 	// open file
 	ImageWriter writer(file);
 
 	// write header
-	Header header = { img.cols, img.rows, params.pf, params.dwtLevels };
+	Header header = { img.cols, img.rows, params.pf, params.dwtLevels, params.waveletType, params.quantizationStep };
 	writer.writeHeader(header);
 
 	// transform input from bgr to desired color model
 	cv::Mat colorTransformed;
 	PixelFormat::transformTo(params.pf, img, colorTransformed);
 
+	// dwt with specified levels
+	auto wt = createWaveletTransform(params.waveletType, params.dwtLevels);
+
 	// convert input to one channel 32bit float
 	cv::Mat image;
-	colorTransformed.convertTo(image, CV_32FC3);
+	colorTransformed.convertTo(image, wt->getType());
 
 	// split image channels
 	std::vector<cv::Mat> channels;
@@ -147,12 +181,10 @@ void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /
 
 	// TODO: chromatic subsampling
 
-	// dwt with specified levels with cdf97 wavelet
-	std::unique_ptr<WaveletTransform> wt(WaveletTransformFactory::create<Cdf97Wavelet>(params.dwtLevels));
-	// handle channels
+	// dwt channels and write it
 	for (auto& channel : channels) {
 		wt->forward2d(channel);
-		writer.writeChannel(channel, params.compressRate);
+		writer.writeChannel(scalarQuantize(channel, params.quantizationStep), params.compressRate);
 	}
 }
 
@@ -175,6 +207,8 @@ public:
 		readElement(header.height);
 		readElement(header.pf);
 		readElement(header.dwtLevels);
+		readElement(header.waveletType);
+		readElement(header.quantStep);
 
 		return header;
 	}
@@ -203,22 +237,10 @@ public:
 		auto ezwDecoder = EzwDecoder(std::make_shared<ArithmeticDecoder>(dominantBS), subordBS);
 		ezwDecoder.decode(threshold, minTreshold, result);
 
-		return convertIntMatToFloat(result);
+		return result;
 
 	}
 private:
-	cv::Mat convertIntMatToFloat(const cv::Mat& m) {
-		assert(m.type() == CV_32S);
-
-		cv::Mat result(m.size(), CV_32F);
-		for (int y = 0; y < m.rows; ++y)
-			for (int x = 0; x < m.cols; ++x)
-				// convert from 19,13 fixed precision
-				result.at<float>(y, x) = m.at<int32_t>(y, x) / float(1 << 13);
-
-		return result;
-	}
-
 	template <typename T>
 	void readElement(T& elm) {
 		ifile.read(reinterpret_cast<char*>(&elm), sizeof(elm));
@@ -229,6 +251,10 @@ private:
 	std::ifstream ifile;
 };
 
+static cv::Mat dequantize(const cv::Mat& m, int step) {
+	return m.mul(cv::Scalar::all(step));
+}
+
 cv::Mat WlfImage::read(const char* file) {
 	ImageReader reader(file);
 	Header header = reader.readHeader();
@@ -236,14 +262,17 @@ cv::Mat WlfImage::read(const char* file) {
 	// read channels
 	int numChannels = header.pf == PixelFormat::Type::Gray ? 1 : 3;
 	std::vector<cv::Mat> channels(numChannels);
-	std::unique_ptr<WaveletTransform> wt(WaveletTransformFactory::create<Cdf97Wavelet>(header.dwtLevels));
+	auto wt = createWaveletTransform(header.waveletType, header.dwtLevels);
 	for (int i = 0; i < numChannels; ++i) {
 		// read channel and perform idwt
-		auto channel = reader.readChannel(header.width, header.height);
-		wt->inverse2d(channel);
+		auto channel = dequantize(reader.readChannel(header.width, header.height), header.quantStep);
+
+		cv::Mat convertedChannel;
+		channel.convertTo(convertedChannel, wt->getType());
+		wt->inverse2d(convertedChannel);
 
 		// convert result to 8bit
-		channel.convertTo(channels[i], CV_8U);
+		convertedChannel.convertTo(channels[i], CV_8U);
 	}
 
 	// merge channels to one image

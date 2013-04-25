@@ -48,7 +48,7 @@ void WaveletTransformImpl<T, Traits>::inverse1d(std::vector<value_type>& dwt) {
 
 template <typename T, class Traits>
 void WaveletTransformImpl<T, Traits>::forward2d(cv::Mat& signal) {
-	assert(signal.type() == traits_type::cvMatType);
+	assert(signal.type() == getType());
 
 	cv::Mat roi(signal, cv::Rect(0, 0, signal.cols, signal.rows));
 	for (int i = 0; i < numLevels; ++i) {
@@ -73,7 +73,7 @@ void WaveletTransformImpl<T, Traits>::forward2d(cv::Mat& signal) {
 
 template <typename T, class Traits>
 void WaveletTransformImpl<T, Traits>::inverse2d(cv::Mat& dwt) {
-	assert(dwt.type() == traits_type::cvMatType);
+	assert(dwt.type() == getType());
 
 	size_t factor = 1 << (numLevels - 1);
 	cv::Mat roi(dwt, cv::Rect(cv::Point(0, 0), cv::Size(dwt.cols / factor, dwt.rows / factor)));
