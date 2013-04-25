@@ -12,8 +12,12 @@
 
 /// this class is needed, because we want some nontemplate Wavelet base class
 /// for restriction in WaveletFactory
-class WaveletBase { };
+class WaveletBase { protected: WaveletBase() { } };
 
+/**
+ * Base class for all wavelets.
+ * @tparam T type on which wavelet operates (e.g. float,int etc.)
+ */
 template <typename T>
 class Wavelet : public WaveletBase
 {

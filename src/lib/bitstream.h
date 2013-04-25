@@ -12,19 +12,35 @@
 #include <cstdint>
 #include <stdexcept>
 
+/**
+ * Reader for individual bits from stl streams.
+ */
 class BitStreamReader
 {
 public:
+	/**
+	 * Constructs new reader from stream.
+	 * @param stream stl istream
+	 */
 	explicit BitStreamReader(std::istream* stream) {
 		reset(stream);
 	}
 
+	/**
+	 * Resets reader to work on new stream.
+	 * @param stream new istream to read from
+	 */
 	void reset(std::istream* stream) {
 		byte = 0;
 		mask = 0;
 		this->stream = stream;
 	}
 
+	/**
+	 * Read single bit from stream.
+	 * @return true if read bit set false otherwise
+	 * @throws std::runtime_error when unable to read from stream
+	 */
 	bool readBit() {
 		if (mask == 0) {
 			if (!stream->read(reinterpret_cast<char*>(&byte), 1))
@@ -43,9 +59,16 @@ private:
 	uint8_t mask;
 };
 
+/**
+ * Writer for individual bits to stl streams.
+ */
 class BitStreamWriter
 {
 public:
+	/**
+	 * Constructs new writer for stream.
+	 * @param stream stl ostream
+	 */
 	explicit BitStreamWriter(std::ostream* stream) {
 		reset(stream);
 	}
@@ -54,6 +77,9 @@ public:
 		flush();
 	}
 
+	/**
+	 * Flushes internal writing buffer.
+	 */
 	void flush() {
 		// when we have something in buffer, write whole byte to stream
 		if (mask != 0x80) {
@@ -63,12 +89,21 @@ public:
 		}
 	}
 
+	/**
+	 * Resets reader to work on new stream.
+	 * @param stream new ostream to write to
+	 */
 	void reset(std::ostream* stream) {
 		byte = 0;
 		mask = 0x80;
 		this->stream = stream;
 	}
 
+	/**
+	 * Writes single bit to stream.
+	 * @param bit true if new bit should be set, false otherwise
+	 * @throws std::runtime_error when failed to write to stream
+	 */
 	void writeBit(bool bit) {
 		// set bit if we should
 		if (bit)

@@ -12,6 +12,10 @@
 
 #include <cstdint>
 
+/**
+ * Biorthogonal Cohen-Daubechies-Feauveau 5/3 wavelet AKA Le-Gall 5/3.
+ * Lifting integer implementation
+ */
 class Cdf53Wavelet : public Wavelet<int32_t>
 {
 public:

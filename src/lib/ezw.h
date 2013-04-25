@@ -10,6 +10,10 @@
 
 #include <cstdlib>
 
+/**
+ * Convenient base class of EzwDecoder and EzwEncoder.
+ * Contains common stuff needed by encoding and decoding, and cannot be instantiated.
+ */
 class EzwCodec
 {
 protected:

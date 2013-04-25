@@ -61,6 +61,11 @@ private:
 	std::vector<T> vec;
 };
 
+/**
+ * Convenient class for passing non-const references to arrays.
+ * Use this class to pass arrays to functions, it's intended to
+ * pass by value, don't worry its just pointer and size.
+ */
 template <typename T>
 class ArrayRef
 {
@@ -98,6 +103,11 @@ private:
 	size_type n;
 };
 
+/**
+ * Convenient class for passing const references to arrays.
+ * Use this class to pass arrays to functions, it's intended to
+ * pass by value, don't worry its just pointer and size.
+ */
 template <typename T>
 class ConstArrayRef
 {

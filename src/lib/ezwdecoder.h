@@ -18,12 +18,27 @@
 #include <deque>
 #include <vector>
 
+/**
+ * Embedded zero tree wavelet transform decoder.
+ * @see http://www.polyvalens.com/blog/wavelets/ezw/
+ */
 class EzwDecoder : public EzwCodec
 {
 public:
+	/**
+	 * Constructs new decoder.
+	 * @param adecoder dominant pass will be decoded by this arithmetic decoder
+	 * @param bsr stream where subordinate pass is
+	 */
 	EzwDecoder(std::shared_ptr<ArithmeticDecoder>& adecoder, std::shared_ptr<BitStreamReader>& bsr) 
 		: dataModel(4), adecoder(adecoder), bitStreamReader(bsr), pixels(0) { }
 
+	/**
+	 * Decodes matrix from streams.
+	 * @param threshold threshold value used while encoding
+	 * @param minThreshold minimum threshold value used while encoding
+	 * @retval decoded matrix
+	 */
 	void decode(int32_t threshold, int32_t minThreshold, cv::Mat& mat);
 private:
 	void dominantPass(int32_t threshold, cv::Mat& mat);
