@@ -104,9 +104,10 @@ public:
 		std::ostringstream dominantSS, subordSS;
 		auto dominantBS = std::make_shared<BitStreamWriter>(&dominantSS);
 		auto subordBS = std::make_shared<BitStreamWriter>(&subordSS);
+		auto ae = std::make_shared<ArithmeticEncoder>(dominantBS);
 
 		// ezw encode
-		auto ezwEncoder = EzwEncoder(std::make_shared<ArithmeticEncoder>(dominantBS), subordBS);
+		auto ezwEncoder = EzwEncoder(ae, subordBS);
 		ezwEncoder.encode(channel, threshold, minTreshold);
 
 		// write passes to file
@@ -191,7 +192,8 @@ void WlfImage::save(const char* file, const cv::Mat& img, const Params& params /
 	// dwt channels and write it
 	for (auto& channel : channels) {
 		wt->forward2d(channel);
-		writer.writeChannel(scalarQuantize(channel, params.quantizationStep), params.compressRate);
+		auto quantized = scalarQuantize(channel, params.quantizationStep);
+		writer.writeChannel(quantized, params.compressRate);
 	}
 }
 
@@ -239,9 +241,10 @@ public:
 		std::istringstream subordSS(std::string(subordPass.get(), subordSize));
 		auto dominantBS = std::make_shared<BitStreamReader>(&dominantSS);
 		auto subordBS = std::make_shared<BitStreamReader>(&subordSS);
+		auto ad = std::make_shared<ArithmeticDecoder>(dominantBS);
 
 		cv::Mat result = cv::Mat::zeros(height, width, CV_32S);
-		auto ezwDecoder = EzwDecoder(std::make_shared<ArithmeticDecoder>(dominantBS), subordBS);
+		auto ezwDecoder = EzwDecoder(ad, subordBS);
 		ezwDecoder.decode(threshold, minTreshold, result);
 
 		return result;

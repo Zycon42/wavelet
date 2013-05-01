@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <climits>
 
 class DataModel
 {
