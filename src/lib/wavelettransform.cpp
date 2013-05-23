@@ -9,133 +9,98 @@
 #include <cmath>
 
 #include "wavelettransform.h"
-#include "utils.h"
 
 #include <algorithm>
 #include <cassert>
+#include <stdexcept>
 
-std::map<WaveletFactory::Type, Wavelet> WaveletFactory::waveletBank = create_map<Type, Wavelet>
-	(WaveletFactory::Type::Harr, 
-		Wavelet(create_vector<double>(M_SQRT1_2)(M_SQRT1_2), create_vector<double>(-M_SQRT1_2)(M_SQRT1_2), 
-			create_vector<double>(M_SQRT1_2)(M_SQRT1_2), create_vector<double>(M_SQRT1_2)(-M_SQRT1_2)
-		)
-	)(WaveletFactory::Type::Cdf97,
-		Wavelet(create_vector<double>(0.026748757411)(-0.016864118443)(-0.078223266529)(0.266864118443)
-				(0.602949018236)(0.266864118443)(-0.078223266529)(-0.016864118443)(0.026748757411),
-			create_vector<double>(0.0)(0.091271763114)(-0.057543526229)(-0.591271763114)(1.11508705)
-				(-0.591271763114)(-0.057543526229)(0.091271763114)(0.0),
-			create_vector<double>(0.0)(-0.091271763114)(-0.057543526229)(0.591271763114)(1.11508705)
-				(0.591271763114)(-0.057543526229)(-0.091271763114)(0.0),
-			create_vector<double>(0.026748757411)(0.016864118443)(-0.078223266529)(-0.266864118443)
-				(0.602949018236)(-0.266864118443)(-0.078223266529)(0.016864118443)(0.026748757411)
-		)
-	);
-
-Wavelet WaveletFactory::create(Type type) {
-	auto valit = waveletBank.find(type);
-	if (valit == waveletBank.end())
-		throw std::runtime_error("Bad wavelet type");
-
-	return valit->second;
+template <typename T, class Traits>
+WaveletTransformImpl<T, Traits>::WaveletTransformImpl(const std::shared_ptr<wavelet_type>& wavelet, int numLevels) : 
+	wavelet(wavelet), numLevels(numLevels) {
 }
 
-WaveletTransform::WaveletTransform(Wavelet wavelet, int numLevels) : 
-	wavelet(std::move(wavelet)), numLevels(numLevels) {
-}
+template <typename T, class Traits>
+void WaveletTransformImpl<T, Traits>::forward1d(std::vector<value_type>& signal) {
+	// signal must be 2^numlevels long
+	if (signal.size() % (1 << numLevels) != 0)
+		throw std::runtime_error("WaveletTransform::forward1d: signal must be 2^numLevels long!");
 
-WaveletTransform::~WaveletTransform() {
-}
-
-void WaveletTransform::forwardStep1d(const VectorXd& signal, VectorXd& approxCoefs, VectorXd& detailCoefs) {
-	auto lpTemp = convolve(signal, wavelet.lowPassAnalysisFilter, ConvolveMode::Valid);
-	downsample(lpTemp, DOWNSAMP_FACTOR, approxCoefs);
-
-	auto hpTemp = convolve(signal, wavelet.highPassAnalysisFilter, ConvolveMode::Valid);
-	downsample(hpTemp, DOWNSAMP_FACTOR, detailCoefs);
-}
-
-void WaveletTransform::symmetricExtense(VectorXd& signal, size_t n) {
-	// we must have enough values for extension
-	assert(signal.size() > 2 * n);
-
-	// preallocate room in signal
-	signal.insert(signal.begin(), n, VectorXd::value_type());
-	signal.insert(signal.end(), n, VectorXd::value_type());
-
-	// insert values symmetrically
-	for (size_t i = 0; i < n; ++i) {
-		signal[i] = signal[2 * n - 1 - i];
-		signal[signal.size() - 1 - i] = signal[signal.size() - 2 * n + i];
-	}
-}
-
-std::list<VectorXd> WaveletTransform::forward1d(const VectorXd& signal) {
-	VectorXd processedSig = signal;
-	// make signal even
-	if ((signal.size() % 2) != 0) {
-		processedSig.push_back(signal.back());
-	}
-
-	std::list<VectorXd> result;
-	VectorXd approxCoefs, detailCoefs;
+	size_t size = signal.size();
 	for (int i = 0; i < numLevels; ++i) {
-		// symmetric signal extension
-		size_t extSize = wavelet.lowPassAnalysisFilter.size();
-		symmetricExtense(processedSig, extSize - 1);
+		wavelet->forward(ArrayRef<value_type>(signal.data(), size));
+		size /= 2;
+	}
+}
 
-		forwardStep1d(processedSig, approxCoefs, detailCoefs);
-		// add detail coefs to result
-		result.push_back(detailCoefs);
+template <typename T, class Traits>
+void WaveletTransformImpl<T, Traits>::inverse1d(std::vector<value_type>& dwt) {
+	// input must be 2^numlevels long
+	if (dwt.size() % (1 << numLevels) != 0)
+		throw std::runtime_error("WaveletTransform::inverse1d: input must be 2^numLevels long!");
 
-		// last iteration
-		if (i == numLevels - 1) {
-			// add to result also approx coefs
-			result.push_back(approxCoefs);
+	// get second highest level size
+	size_t size = dwt.size() / (1 << (numLevels - 1));
+	for (int i = 0; i < numLevels; ++i) {
+		wavelet->inverse(ArrayRef<value_type>(dwt.data(), size));
+		size *= 2;
+	}
+}
+
+template <typename T, class Traits>
+void WaveletTransformImpl<T, Traits>::forward2d(cv::Mat& signal) {
+	assert(signal.type() == getType());
+
+	cv::Mat roi(signal, cv::Rect(0, 0, signal.cols, signal.rows));
+	for (int i = 0; i < numLevels; ++i) {
+		// transform rows
+		for (int i = 0; i < roi.rows; ++i) {
+			ArrayRef<value_type> rowPtr(roi.ptr<value_type>(i), roi.cols);
+			wavelet->forward(rowPtr);
+		}
+		// transform cols by transposing and then transforming by rows
+		cv::Mat transposed = roi.t();
+		for (int i = 0; i < transposed.rows; ++i) {
+			ArrayRef<value_type> rowPtr(transposed.ptr<value_type>(i), transposed.cols);
+			wavelet->forward(rowPtr);
+		}
+		// copy transposed to roi
+		cv::Mat(transposed.t()).copyTo(roi);
+
+		// set roi to upper left corner
+		roi.adjustROI(0, -(roi.rows / 2), 0, -(roi.cols / 2));
+	}
+}
+
+template <typename T, class Traits>
+void WaveletTransformImpl<T, Traits>::inverse2d(cv::Mat& dwt) {
+	assert(dwt.type() == getType());
+
+	size_t factor = 1 << (numLevels - 1);
+	cv::Mat roi(dwt, cv::Rect(cv::Point(0, 0), cv::Size(dwt.cols / factor, dwt.rows / factor)));
+	for (int i = 0; i < numLevels; ++i) {
+		// transform cols by transposing and then transforming by rows
+		cv::Mat transposed = roi.t();
+		for (int i = 0; i < transposed.rows; ++i) {
+			ArrayRef<value_type> rowPtr(transposed.ptr<value_type>(i), transposed.cols);
+			wavelet->inverse(rowPtr);
+		}
+		// copy transposed to roi
+		cv::Mat(transposed.t()).copyTo(roi);
+
+		// transform rows
+		for (int i = 0; i < roi.rows; ++i) {
+			ArrayRef<value_type> rowPtr(roi.ptr<value_type>(i), roi.cols);
+			wavelet->inverse(rowPtr);
 		}
 
-		// use approximated coefficients as signal in next iteration
-		processedSig = approxCoefs;
-		approxCoefs.clear();
-		detailCoefs.clear();
+		// extend roi
+		roi.adjustROI(0, roi.rows, 0, roi.cols);
 	}
-
-	return result;
 }
 
-VectorXd WaveletTransform::inverseStep1d(const VectorXd& approxCoefs, const VectorXd& detailCoefs) {
-	VectorXd appUpsampled = upsample(approxCoefs, UPSAMP_FACTOR);
-	appUpsampled.pop_back();
-	VectorXd appConv = convolve(appUpsampled, wavelet.lowPassSynthesisFilter, ConvolveMode::Valid);
-
-	VectorXd detUpsampled = upsample(detailCoefs, UPSAMP_FACTOR);
-	detUpsampled.pop_back();
-	VectorXd detConv = convolve(detUpsampled, wavelet.highPassSynthesisFilter, ConvolveMode::Valid);
-
-	VectorXd result(appConv.size());
-	// add appConv with dettConv to result
-	std::transform(appConv.begin(), appConv.end(), detConv.begin(), result.begin(), 
-		[] (double lhs, double rhs) -> double { return lhs + rhs; });
-
-	return result;
-}
-
-VectorXd WaveletTransform::inverse1d(const std::list<VectorXd>& dwt) {
-	assert(dwt.size() == numLevels + 1);
-
-	// process dwt coefs from end
-	auto curCoefIterator = dwt.rbegin();
-	auto approxCoef = *curCoefIterator++;
-	auto detailCoef = *curCoefIterator++;
-
-	VectorXd result;
-	for (int i = 0; i < numLevels; ++i) {
-		result = inverseStep1d(approxCoef, detailCoef);
-
-		if (i < numLevels - 1) {
-			approxCoef = result;
-			detailCoef = *curCoefIterator++;
-		}
-	}
-
-	return result;
-}
+// this is explicit template instantiation
+// we must use this because we have template implementation in cpp file
+// instantiation of WaveletTransformImpl with other types than those
+// listed here will fail on horrible linked errors!
+template class WaveletTransformImpl<int32_t>;
+template class WaveletTransformImpl<float>;

@@ -15,8 +15,10 @@ if (GTEST_FOUND)
 	
 	set(ZPO13_TESTS_SOURCES
 		TestCV.cpp
-		TestMathUtils.cpp
 		TestDwt.cpp
+		TestImage.cpp
+		TestEzw.cpp
+		TestAC.cpp
 	)
 	
 	add_executable(tests ${ZPO13_TESTS_SOURCES})

@@ -3,14 +3,31 @@
 # author: Jan Dušek <jan.dusek90@gmail.com>
 
 set(ZPO13_LIB_HEADERS
-    mathutils.h
 	wavelettransform.h
 	utils.h
+	wavelet.h
+	cdf97wavelet.h
+	cdf53wavelet.h
+	wlfimage.h
+	bitstream.h
+	ezw.h
+	ezwencoder.h
+	ezwdecoder.h
+	arithmcodec.h
+	arithmencoder.h
+	arithmdecoder.h
 )
 
 set(ZPO13_LIB_SOURCES
-    mathutils.cpp
 	wavelettransform.cpp
+	cdf97wavelet.cpp
+	cdf53wavelet.cpp
+	wlfimage.cpp
+	ezwencoder.cpp
+	ezwdecoder.cpp
+	arithmcodec.cpp
+	arithmencoder.cpp
+	arithmdecoder.cpp
 )
 
 add_library(zpo13 ${ZPO13_LIB_HEADERS} ${ZPO13_LIB_SOURCES})

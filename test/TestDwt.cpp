@@ -1,43 +1,83 @@
 #include <gtest/gtest.h>
 
 #include <wavelettransform.h>
+#include <cdf97wavelet.h>
+#include <cdf53wavelet.h>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 #include <memory>
+#include <cstdlib>
+#include <algorithm>
 
 class TestDwt : public ::testing::Test
 {
 protected:
 	void SetUp() {
-		for (int i = 0; i < 50; i++) {
-			testVal.push_back(rand() % 50);
-		}
-
-		harrWt.reset(new WaveletTransform(WaveletFactory::create(WaveletFactory::Type::Harr), 2));
-		cdf97Wt.reset(new WaveletTransform(WaveletFactory::create(WaveletFactory::Type::Cdf97), 2));
 	}
 
-	std::unique_ptr<WaveletTransform> harrWt;
-	std::unique_ptr<WaveletTransform> cdf97Wt;
+	double computeDifference(const cv::Mat& test, const cv::Mat& ref) {
+		cv::Mat diff;
+		cv::absdiff(test, ref, diff);
+		return cv::sum(diff).val[0] / (diff.rows*diff.cols);
+	}
 
-	VectorXd testVal;
 };
 
-/*TEST_F(TestDwt, OneDimHarr) {
-	auto forwardRes = harrWt->forward1d(testVal);
-	auto inverseRes = harrWt->inverse1d(forwardRes);
+TEST_F(TestDwt, TwoDimCdf97) {
+	std::unique_ptr<WaveletTransform> cdf97Wt(WaveletTransformFactory::create<Cdf97Wavelet>(2));
 
-	ASSERT_EQ(testVal.size(), inverseRes.size());
-	for (size_t i = 0; i < testVal.size(); ++i) {
-		EXPECT_NEAR(testVal[i], inverseRes[i], 1e-13);
-	}
-}*/
+	cv::Mat image = cv::imread("lena.png", CV_LOAD_IMAGE_COLOR);
+	ASSERT_FALSE(!image.data);
 
-TEST_F(TestDwt, OneDimCdf97) {
-	auto forwardRes = cdf97Wt->forward1d(testVal);
-	auto inverseRes = cdf97Wt->inverse1d(forwardRes);
+	cv::Mat dimg;
+	image.convertTo(dimg, CV_32FC3);
+	dimg = dimg.reshape(1);
 
-	ASSERT_EQ(testVal.size(), inverseRes.size());
-	for (size_t i = 0; i < testVal.size(); ++i) {
-		EXPECT_NEAR(testVal[i], inverseRes[i], 1e-13);
+	cv::Mat orgDimg = dimg.clone();
+
+	cdf97Wt->forward2d(dimg);
+	//cv::imwrite("dwt.png", dimg.reshape(3));
+
+	cdf97Wt->inverse2d(dimg);
+	//cv::imwrite("inverse.png", dimg.reshape(3));
+
+	EXPECT_NEAR(0.0, computeDifference(dimg, orgDimg), 1e-4);
+}
+
+TEST_F(TestDwt, TwoDimCdf53) {
+	std::unique_ptr<WaveletTransform> cdf53Wt(WaveletTransformFactory::create<Cdf53Wavelet>(1));
+
+	cv::Mat image = cv::imread("lena.png", CV_LOAD_IMAGE_COLOR);
+	ASSERT_FALSE(!image.data);
+
+	cv::Mat dimg;
+	image.convertTo(dimg, CV_32SC3);
+	dimg = dimg.reshape(1);
+
+	cv::Mat orgDimg = dimg.clone();
+
+	cdf53Wt->forward2d(dimg);
+	cv::imwrite("dwt.png", dimg.reshape(3));
+
+	cdf53Wt->inverse2d(dimg);
+	cv::imwrite("inverse.png", dimg.reshape(3));
+
+	EXPECT_DOUBLE_EQ(0.0, computeDifference(dimg, orgDimg));
+}
+
+TEST_F(TestDwt, OneDimCdf53) {
+	auto cdf53wavelet = Cdf53Wavelet();
+	std::vector<int> data(512);
+	std::generate(data.begin(), data.end(), [] () { return rand() % 255; });
+
+	auto origData = data;
+
+	cdf53wavelet.forward(data);
+	cdf53wavelet.inverse(data);
+
+	for (size_t i = 0; i < origData.size(); i++) {
+		EXPECT_EQ(origData[i], data[i]);
 	}
 }
