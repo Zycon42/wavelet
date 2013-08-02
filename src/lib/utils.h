@@ -137,4 +137,12 @@ private:
 	size_type n;
 };
 
+/**
+ * Naive implementation of sign function
+ */
+template <typename T>
+bool sign(T val) {
+	return val >= 0 ? true : false;
+}
+
 #endif // !UTILS_H

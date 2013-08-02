@@ -16,6 +16,7 @@ set(ZPO13_LIB_HEADERS
 	arithmcodec.h
 	arithmencoder.h
 	arithmdecoder.h
+	spihtencoder.h
 )
 
 set(ZPO13_LIB_SOURCES
@@ -28,6 +29,7 @@ set(ZPO13_LIB_SOURCES
 	arithmcodec.cpp
 	arithmencoder.cpp
 	arithmdecoder.cpp
+	spihtencoder.cpp
 )
 
 add_library(zpo13 ${ZPO13_LIB_HEADERS} ${ZPO13_LIB_SOURCES})
